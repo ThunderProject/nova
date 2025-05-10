@@ -1,0 +1,15 @@
+[package]
+name = "nova"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "nova"
+path = "src/lib.rs"
+
+[dependencies]
+dicom = "0.8.1"
+dicom-core = "0.8.1"
+dicom-object = "0.8.1"
+anyhow = "1.0.98"
+serde = { version = "1.0.219", features = ["derive"] }
