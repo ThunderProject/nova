@@ -1,0 +1,7 @@
+target_sources(${CMAKE_PROJECT_NAME}
+        PUBLIC
+        enum_utils.h
+        json.h
+        logger.h
+        result.h
+)
