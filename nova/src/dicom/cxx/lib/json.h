@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iostream>
 #include "result.h"
+#include "logger.h"
 
 namespace nova {
 
@@ -20,7 +21,7 @@ namespace nova {
             try {
                 std::ifstream file(path);
                 if (!file.is_open()) {
-                    logger::error("json::parse failed to open file '{}'", path);
+                    logger::error("json::parse failed to open file '{}'", path.string());
                     return std::unexpected("Failed to open file");
                 }
                 return nlohmann::json::parse(file).get<T>();
