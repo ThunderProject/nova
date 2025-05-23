@@ -1,0 +1,11 @@
+{
+  "Brain": {"level": [40], "width": [80]},
+  "Lung": {"level": [-600], "width": [1500]},
+  "Mediastinum": {"level": [40], "width": [400]},
+  "Bone": {"level": [300], "width": [2000]},
+  "Liver": {"level": [60], "width": [150]},
+  "Abdomen": {"level": [40], "width": [400]},
+  "Spine": { "level": [60], "width": [300] },
+  "Pelvis": { "level": [50], "width": [400] },
+  "Kidneys": { "level": [35], "width": [240] }
+}
