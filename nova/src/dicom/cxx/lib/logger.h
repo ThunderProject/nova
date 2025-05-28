@@ -13,7 +13,7 @@ namespace nova {
         static void init() {
             const quill::BackendOptions backendOptions {
                 .thread_name = "nova cxx logger",
-                . enable_yield_when_idle = true,
+                .enable_yield_when_idle = true,
                 .sleep_duration = std::chrono::milliseconds(0),
             };
 
