@@ -40,6 +40,8 @@ namespace nova::dcm {
     struct image_dimensions {
         uint64_t width;
         uint64_t height;
+
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(image_dimensions, width, height)
     };
 
     struct image_data {
@@ -51,6 +53,17 @@ namespace nova::dcm {
         double intercept;
         photometric_interpretation photometricInterpretation;
         dicom_window windowing;
+
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(
+            image_data,
+            dimensions,
+            bytesPerPixel,
+            samplesPerPixel,
+            slope,
+            intercept,
+            photometricInterpretation,
+            windowing
+        );
     };
 
     class dicom_image;
