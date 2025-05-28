@@ -6,8 +6,6 @@ class DicomRecipe(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
     generators = "CMakeDeps", "CMakeToolchain"
 
-    def configure(self):
-        self.options["dcmtk"].with_charls = True
     def requirements(self):
         self.requires("gdcm/3.0.24")
         self.requires("opencv/4.11.0")
