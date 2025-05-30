@@ -5,15 +5,15 @@ import {
     IconDeviceFloppy,
     IconMenu2
 } from '@tabler/icons-react';
-// import { MantineLogo } from '@mantinex/mantine-logo';
 import classes from './MainTabBar.module.css';
 import {useEffect, useRef, useState} from "react";
 import nova_logo from '../../assets/nova_icon.png';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const tabs = [
-    'Patient data',
-    'Viewer',
-    'Export',
+    { label: 'Patient data', path: '/patients' },
+    { label: 'Viewer', path: '/viewer' },
+    { label: 'Export', path: '/export' },
 ];
 
 export function MainTabBar() {
@@ -40,6 +40,21 @@ export function MainTabBar() {
             document.removeEventListener('mousedown', handleClickOutside);
         };
     }, [menuOpen]);
+
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    const currentTab = tabs.find((tab) => location.pathname.startsWith(tab.path))?.label || 'Patient data';
+    const handleTabChange = (label: string | null) => {
+        if(!label) {
+            return;
+        }
+
+        const tab = tabs.find((tab) => tab.label === label);
+        if(tab) {
+            navigate(tab.path);
+        }
+    }
 
     return (
         <div className={classes.header}>
@@ -104,7 +119,8 @@ export function MainTabBar() {
             <div className={classes.tabsRow}>
                 <div className={classes.tabsIndent}>
                     <Tabs
-                        defaultValue="Patient data"
+                        value={currentTab}
+                        onChange={handleTabChange}
                         variant="outline"
                         classNames={{
                             list: classes.tabsList,
@@ -113,8 +129,8 @@ export function MainTabBar() {
                     >
                         <Tabs.List>
                             {tabs.map((tab) => (
-                                <Tabs.Tab key={tab} value={tab}>
-                                    {tab}
+                                <Tabs.Tab key={tab.label} value={tab.label}>
+                                    {tab.label}
                                 </Tabs.Tab>
                             ))}
                         </Tabs.List>
