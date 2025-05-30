@@ -1,0 +1,8 @@
+.selectInput {
+    transition: all 150ms ease;
+}
+
+.selectInput:hover {
+    background-color: var(--mantine-color-dark-5);
+    border-color: var(--mantine-color-blue-6);
+}

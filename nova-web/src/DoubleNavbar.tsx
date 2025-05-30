@@ -1,93 +1,68 @@
-import { useState } from 'react';
 import {
-    IconCalendarStats,
-    IconDeviceDesktopAnalytics,
-    IconFingerprint,
-    IconGauge,
-    IconHome2,
-    IconSettings,
-    IconUser,
+    IconZoomInArea,
+    IconPointer,
+    IconAdjustmentsHorizontal,
+    IconRotate,
+    IconRulerMeasure,
 } from '@tabler/icons-react';
 import { Title, Tooltip, UnstyledButton } from '@mantine/core';
-import { MantineLogo } from '@mantinex/mantine-logo';
 import classes from './DoubleNavbar.module.css';
+import novaLogo from './assets/nova_icon.png';
 
-const mainLinksMockdata = [
-    { icon: IconHome2, label: 'Home' },
-    { icon: IconGauge, label: 'Dashboard' },
-    { icon: IconDeviceDesktopAnalytics, label: 'Analytics' },
-    { icon: IconCalendarStats, label: 'Releases' },
-    { icon: IconUser, label: 'Account' },
-    { icon: IconFingerprint, label: 'Security' },
-    { icon: IconSettings, label: 'Settings' },
-];
+import { useViewerToolsStore } from './stores/ViewerToolStore';
+import type { ViewerTool } from './stores/ViewerToolStore';
+import CTWindowingToolSettings from "./components/CTWindowingToolSettings/CTWindowingToolSettings.tsx";
 
-const linksMockdata = [
-    'Security',
-    'Settings',
-    'Dashboard',
-    'Releases',
-    'Account',
-    'Orders',
-    'Clients',
-    'Databases',
-    'Pull Requests',
-    'Open Issues',
-    'Wiki pages',
-];
+//mock components
+const ZoomToolSettings = () => <p>Zoom tool settings</p>;
+const MeasurementList = () => <p>Measurement results</p>;
 
 export function DoubleNavbar() {
-    const [active, setActive] = useState('Releases');
-    const [activeLink, setActiveLink] = useState('Settings');
+    const { activeTool, setTool } = useViewerToolsStore();
 
-    const mainLinks = mainLinksMockdata.map((link) => (
-        <Tooltip
-            label={link.label}
-            position="right"
-            withArrow
-            transitionProps={{ duration: 0 }}
-            key={link.label}
-        >
+    const viewerTools = [
+        { icon: IconZoomInArea, label: 'Zoom' },
+        { icon: IconPointer, label: 'Pan' },
+        { icon: IconAdjustmentsHorizontal, label: 'Windowing' },
+        { icon: IconRotate, label: 'Rotate' },
+        { icon: IconRulerMeasure, label: 'Measure' },
+    ];
+
+    const toolIcons = viewerTools.map((tool) => (
+        <Tooltip key={tool.label} label={tool.label} position="right" withArrow>
             <UnstyledButton
-                onClick={() => setActive(link.label)}
+                onClick={() => setTool(tool.label as ViewerTool)}
                 className={classes.mainLink}
-                data-active={link.label === active || undefined}
+                data-active={tool.label === activeTool || undefined}
             >
-                <link.icon size={22} stroke={1.5} />
+                <tool.icon size={22} stroke={1.5} />
             </UnstyledButton>
         </Tooltip>
-    ));
-
-    const links = linksMockdata.map((link) => (
-        <a
-            className={classes.link}
-            data-active={activeLink === link || undefined}
-            href="#"
-            onClick={(event) => {
-                event.preventDefault();
-                setActiveLink(link);
-            }}
-            key={link}
-        >
-            {link}
-        </a>
     ));
 
     return (
         <nav className={classes.navbar}>
             <div className={classes.wrapper}>
+                {/* Left icon strip */}
                 <div className={classes.aside}>
                     <div className={classes.logo}>
-                        <MantineLogo type="mark" size={30} />
+                        <img src={novaLogo} width={45} alt="Nova logo" />
                     </div>
-                    {mainLinks}
+                    {toolIcons}
                 </div>
+
+                {/* Right settings panel */}
                 <div className={classes.main}>
-                    <Title order={4} className={classes.title}>
-                        {active}
+                    <Title order={5} className={classes.title}>
+                        {activeTool}
                     </Title>
 
-                    {links}
+                    {activeTool === 'Zoom' && <ZoomToolSettings />}
+                    {activeTool === 'Windowing' && <CTWindowingToolSettings/>}
+                    {activeTool === 'Measure' && <MeasurementList />}
+                    {activeTool === 'Pan' && <p>Pan is active. Drag to move image.</p>}
+                    {activeTool === 'Rotate' && <p>Rotate the image using gestures.</p>}
+                    {activeTool === 'None' && <p>Select a tool to get started.</p>}
                 </div>
             </div>
         </nav>

@@ -1,0 +1,18 @@
+.viewportWrapper {
+    height: calc(100vh - 100px);
+    background-color: transparent;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: var(--mantine-spacing-md);
+}
+
+.viewportCanvas {
+    background-color: var(--mantine-color-dark-5);
+    border: 1px solid var(--mantine-color-dark-3);
+    border-radius: var(--mantine-radius-sm);
+    width: 100%;
+    max-width: 1000px;
+    aspect-ratio: 4 / 3;
+    box-shadow: var(--mantine-shadow-md);
+}
