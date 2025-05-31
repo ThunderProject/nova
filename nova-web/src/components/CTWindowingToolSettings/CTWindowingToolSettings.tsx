@@ -8,12 +8,17 @@ import {
     Title,
     TextInput,
     Collapse, Slider, rem, Select,
-    Paper,
+    Paper, Tooltip, Checkbox,
 } from '@mantine/core';
-import { IconPlus } from '@tabler/icons-react';
+import {
+    IconPlus,
+    IconInfoCircle,
+    IconAlertTriangle
+} from '@tabler/icons-react';
 import { useState } from 'react';
 import { useViewerToolsStore } from '../../stores/ViewerToolStore';
 import styles from './CTWindowingToolSettings.module.css'
+import toast from "react-hot-toast";
 
 type PresetName = 'Brain' | 'Lung' | 'Bone' | 'SoftTissue';
 
@@ -24,15 +29,34 @@ const presets: Record<PresetName, { width: number; level: number }> = {
     SoftTissue: { width: 400, level: 40 },
 };
 
+const successToast = (message: string) =>
+    toast.success(message, {
+        style: {
+            background: 'var(--mantine-color-dark-6)',
+            border: '1px solid var(--mantine-color-green-5)',
+            color: 'white',
+            padding: '6px 6px',
+            borderRadius: 'var(--mantine-radius-md)',
+        },
+        iconTheme: {
+            primary: 'var(--mantine-color-green-5)',
+            secondary: 'var(--mantine-color-dark-6)',
+        },
+    });
+
+const defaultPresetWindowWidth = 400;
+const defaultPresetWindowLevel = 40;
+
 export default function CTWindowingToolSettings() {
     const { windowSettings, setWindowSettings, addPreset } = useViewerToolsStore();
     const [showAddPreset, setShowAddPreset] = useState(false);
 
     const [presetName, setPresetName] = useState('');
-    const [presetWidth, setPresetWidth] = useState<number | ''>('');
-    const [presetLevel, setPresetLevel] = useState<number | ''>('');
+    const [presetWidth, setPresetWidth] = useState<number | ''>(defaultPresetWindowWidth);
+    const [presetLevel, setPresetLevel] = useState<number | ''>(defaultPresetWindowLevel);
     const [nameError, setNameError] = useState(false);
-
+    const [duplicateWarning, setDuplicateWarning] = useState(false);
+    const existingPresetNames = Object.keys(presets).map(name => name.toLowerCase());
 
     const handlePresetChange = (preset: string | null) => {
         if (preset && preset in presets) {
@@ -51,9 +75,11 @@ export default function CTWindowingToolSettings() {
             level: Number(presetLevel),
         });
 
+        successToast('Preset added successfully');
+
         setPresetName('');
-        setPresetWidth('');
-        setPresetLevel('');
+        setPresetWidth(defaultPresetWindowWidth);
+        setPresetLevel(defaultPresetWindowLevel);
         setShowAddPreset(false);
     };
 
@@ -140,39 +166,117 @@ export default function CTWindowingToolSettings() {
                 <Collapse in={showAddPreset}>
                     <Paper withBorder shadow="sm" radius="md" p="md">
                         <Stack gap="sm">
+                            <Checkbox
+                                // checked={preserve}
+                                // onChange={(e) => setPreserve(e.currentTarget.checked)}
+                                label={
+                                    <Group gap={4} wrap="nowrap">
+                                        <Text size="sm">Persist</Text>
+                                        <Tooltip
+                                            label="Save this preset permanently for future launches"
+                                            withArrow
+                                            position="right"
+                                        >
+                                            <Text span style={{ cursor: 'help', color: 'var(--mantine-color-blue-4)' }}>
+                                                <IconInfoCircle
+                                                    size={16}
+                                                    style={{ cursor: 'help' }}
+                                                    stroke={1.5}
+                                                />
+                                            </Text>
+                                        </Tooltip>
+                                    </Group>
+                                }
+                            />
                             <TextInput
                                 label="Name"
-                                placeholder="e.g. Tumor Boost"
+                                placeholder="e.g. Liver"
                                 value={presetName}
                                 onChange={(e) => {
-                                    setPresetName(e.currentTarget.value);
-                                    setNameError(false);
+                                    const value = e.currentTarget.value;
+                                    const isEmpty = (str: string) => (!str?.trim().length);
+                                    const isDuplicate = existingPresetNames.includes(value.toLowerCase());
+
+                                    const empty = isEmpty(value)
+
+                                    setPresetName(value);
+                                    setNameError(empty);
+
+                                    setPresetName(value);
+                                    setNameError(empty);
+                                    setDuplicateWarning(!empty && isDuplicate);
                                 }}
+                                description={
+                                    duplicateWarning && (
+                                        <Group gap={4} align="center">
+                                            <IconAlertTriangle size={16} color="var(--mantine-color-yellow-6)" />
+                                            A preset with this name already exists. It will be overwritten.
+                                        </Group>
+                                    )
+                                }
                                 error={nameError && 'Name is required'}
                                 required
+                                styles={{
+                                    input: {
+                                        borderColor: duplicateWarning
+                                            ? 'var(--mantine-color-yellow-6)'
+                                            : undefined,
+                                    },
+                                }}
                             />
                             <NumberInput
                                 label="Window Width"
-                                placeholder="400"
                                 value={presetWidth}
                                 min={1}
                                 max={4000}
-                                onChange={(val) => setPresetWidth(val)}
+                                onChange={(val) => {
+                                    if(val === '' || typeof val === 'number') {
+                                        setPresetWidth(val);
+                                    }
+                                }}
                             />
                             <NumberInput
                                 label="Window Level"
-                                placeholder="40"
                                 value={presetLevel}
                                 min={-1000}
                                 max={1000}
-                                onChange={(val) => setPresetLevel(val)}
+                                onChange={(val) => {
+                                    if(val === '' || typeof val === 'number') {
+                                        setPresetLevel(val);
+                                    }
+                                }}
                             />
-                            <Button
-                                onClick={handleAdd}
-                                fullWidth
+                            <Tooltip
+                                label="Please enter a name first"
+                                position="bottom"
+                                withArrow
+                                disabled={!nameError} // Only show when nameError is true
                             >
-                                Add
-                            </Button>
+                                <Button
+                                    fullWidth
+                                    onClick={handleAdd}
+                                    radius="md"
+                                    variant="outline"
+                                    size="md"
+                                    disabled={nameError}
+                                    className={styles.addButton}
+                                    styles={{
+                                        root: {
+                                            borderColor: 'var(--mantine-color-blue-6)',
+                                            backgroundColor: nameError ? 'transparent' : 'inherit',
+                                            color: 'var(--mantine-color-blue-2)',
+                                            transition: 'all 150ms ease',
+                                            opacity: nameError ? 0.4 : 1,
+                                        },
+                                        label: {
+                                            fontWeight: 600,
+                                            letterSpacing: 0.25,
+                                        },
+                                    }}
+                                >
+                                    Add
+                                </Button>
+                            </Tooltip>
                         </Stack>
                     </Paper>
                 </Collapse>
