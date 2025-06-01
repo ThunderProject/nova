@@ -5,10 +5,15 @@ import { theme } from './theme';
 import {MainTabBar} from "./components/MainTabBar/MainTabBar.tsx";
 import {Route, Routes} from "react-router";
 import Viewer from './pages/viewer';
+import { Toaster } from 'react-hot-toast';
 
 export default function App() {
     return (
-        <MantineProvider theme={theme}>
+        <MantineProvider
+            theme={theme}
+            defaultColorScheme="dark"
+        >
+            <Toaster/>
             <MainTabBar/>
             <Routes>
                 <Route path="/viewer" element={<Viewer />} />

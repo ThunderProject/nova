@@ -20,6 +20,9 @@ interface ViewerToolsState {
     windowSettings: WindowLevelSettings;
     setWindowSettings: (settings: Partial<WindowLevelSettings>) => void;
 
+    userPresets: Record<string, { width: number; level: number }>;
+    setUserPresets: (data: Record<string, { width: number; level: number }>) => void;
+
     customPresets: Preset[];
     addPreset: (preset: Preset) => void;
 }
@@ -36,7 +39,19 @@ export const useViewerToolsStore = create<ViewerToolsState>((set) => ({
 
     customPresets: [],
     addPreset: (preset) =>
-        set((state) => ({
-            customPresets: [...state.customPresets, preset],
-        })),
+        set((state) => {
+            const existingIndex = state.customPresets.findIndex(p => p.name.toLowerCase() === preset.name.toLowerCase());
+            let updatedPresets;
+
+            if (existingIndex !== -1) {
+                updatedPresets = [...state.customPresets];
+                updatedPresets[existingIndex] = preset;
+            }
+            else {
+                updatedPresets = [...state.customPresets, preset];
+            }
+            return { customPresets: updatedPresets };
+        }),
+    userPresets: {},
+    setUserPresets: (data) => set({ userPresets: data }),
 }));

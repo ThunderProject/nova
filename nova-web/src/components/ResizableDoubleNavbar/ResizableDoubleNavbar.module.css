@@ -1,12 +1,15 @@
 .container {
     display: flex;
     height: 100%;
+    overflow: hidden;
 }
 
 .sidebar {
     min-width: 160px;
     background-color: var(--mantine-color-dark-6);
     overflow: auto;
+    display: flex;
+    height: 100%;
 }
 
 .resizer {

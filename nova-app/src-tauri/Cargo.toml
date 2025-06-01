@@ -23,5 +23,8 @@ tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri-plugin-devtools = "2.0.0"
+tauri-plugin-fs = "2.3.0"
 nova = { path = "../../nova" }
+tokio = "1.45.1"
+anyhow = "1.0.98"
 

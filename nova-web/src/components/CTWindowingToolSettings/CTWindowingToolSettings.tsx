@@ -15,19 +15,14 @@ import {
     IconInfoCircle,
     IconAlertTriangle
 } from '@tabler/icons-react';
-import { useState } from 'react';
+import {useEffect, useState} from 'react';
 import { useViewerToolsStore } from '../../stores/ViewerToolStore';
 import styles from './CTWindowingToolSettings.module.css'
 import toast from "react-hot-toast";
+import {CTWindowingPresetsLoader} from "../../utils/CTWindowingPresetsLoader.ts";
+import {logger} from "../../lib/Logger.ts";
 
 type PresetName = 'Brain' | 'Lung' | 'Bone' | 'SoftTissue';
-
-const presets: Record<PresetName, { width: number; level: number }> = {
-    Brain: { width: 80, level: 40 },
-    Lung: { width: 1500, level: -600 },
-    Bone: { width: 2000, level: 300 },
-    SoftTissue: { width: 400, level: 40 },
-};
 
 const successToast = (message: string) =>
     toast.success(message, {
@@ -48,7 +43,7 @@ const defaultPresetWindowWidth = 400;
 const defaultPresetWindowLevel = 40;
 
 export default function CTWindowingToolSettings() {
-    const { windowSettings, setWindowSettings, addPreset } = useViewerToolsStore();
+    const { windowSettings, setWindowSettings, addPreset, userPresets, setUserPresets} = useViewerToolsStore();
     const [showAddPreset, setShowAddPreset] = useState(false);
 
     const [presetName, setPresetName] = useState('');
@@ -56,18 +51,33 @@ export default function CTWindowingToolSettings() {
     const [presetLevel, setPresetLevel] = useState<number | ''>(defaultPresetWindowLevel);
     const [nameError, setNameError] = useState(false);
     const [duplicateWarning, setDuplicateWarning] = useState(false);
-    const existingPresetNames = Object.keys(presets).map(name => name.toLowerCase());
+    const existingPresetNames = Object.keys(userPresets).map(name => name.toLowerCase());
+
+    useEffect(() => {
+        const load = async () => {
+            const presets = await CTWindowingPresetsLoader.load();
+            if(!presets) {
+                logger.error("Failed to load presets");
+                return;
+            }
+            setUserPresets(presets)
+        }
+        void load();
+    }, [setUserPresets])
 
     const handlePresetChange = (preset: string | null) => {
-        if (preset && preset in presets) {
-            setWindowSettings(presets[preset as PresetName]);
+        if (preset && preset in userPresets) {
+            setWindowSettings(userPresets[preset as PresetName]);
         }
     };
 
     const handleAdd = () => {
         if (!presetName || presetWidth === '' || presetLevel === '') {
+            logger.error("Failed to add entry preset. Reason: one or more values are invalid")
             return;
         }
+
+        logger.info(`Adding ${presetName} to presets`)
 
         addPreset({
             name: presetName,
@@ -81,6 +91,7 @@ export default function CTWindowingToolSettings() {
         setPresetWidth(defaultPresetWindowWidth);
         setPresetLevel(defaultPresetWindowLevel);
         setShowAddPreset(false);
+        setDuplicateWarning(false);
     };
 
     return (
@@ -88,11 +99,11 @@ export default function CTWindowingToolSettings() {
             <Box px="md">
                 <Title order={6} mb="xs">Preset</Title>
                 <Select
-                    data={Object.keys(presets)}
+                    data={Object.keys(userPresets)}
                     placeholder="Select preset"
                     onChange={handlePresetChange}
                     value={
-                        (Object.entries(presets).find(
+                        (Object.entries(userPresets).find(
                             ([, v]) =>
                                 v.width === windowSettings.width &&
                                 v.level === windowSettings.level
@@ -103,28 +114,41 @@ export default function CTWindowingToolSettings() {
                     classNames={{
                         input: styles.selectInput, // 👈 targets input wrapper
                     }}
+                    maxDropdownHeight={"200"}
+                    scrollAreaProps={{ scrollbarSize: 6, type: 'auto'}}
                     styles={{
                         input: {
                             transition: 'all 150ms ease',
-                            '&:hover': {
-                                borderColor: 'var(--mantine-color-blue-6)',
-                                backgroundColor: 'var(--mantine-color-dark-5)',
-                            },
                         },
                     }}
                 />
             </Box>
 
             <Box px="md">
-                <Group justify="space-between" mb="xs">
-                    <Title order={6}>Window Width</Title>
-                    <Text size="xs" c="dimmed">{windowSettings.width}</Text>
+                <Group justify="space-between" align="center" mb="xs">
+                    <Title order={6} mb={0}>
+                        Window Width
+                    </Title>
+                    <NumberInput
+                        value={windowSettings.width}
+                        onChange={(val) => {
+                            if (typeof val === 'number') {
+                                setWindowSettings({ width: val });
+                            }
+                        }}
+                        min={1}
+                        max={4000}
+                        hideControls
+                        classNames={{ input: styles.inlineInput }}
+                    />
                 </Group>
+
                 <Slider
-                    min={1}
-                    max={4000}
                     value={windowSettings.width}
                     onChange={(val) => setWindowSettings({ width: val })}
+                    min={1}
+                    max={4000}
+                    step={1}
                     color="blue"
                     styles={{
                         thumb: { width: rem(16), height: rem(16), border: '2px solid white' },
@@ -133,17 +157,33 @@ export default function CTWindowingToolSettings() {
                 />
             </Box>
 
+
             <Box px="md">
-                <Group justify="space-between" mb="xs">
-                    <Title order={6}>Window Level</Title>
-                    <Text size="xs" c="dimmed">{windowSettings.level}</Text>
+                <Group justify="space-between" align="center" mb="xs">
+                    <Title order={6} mb={0}>
+                        Window Level
+                    </Title>
+                    <NumberInput
+                        value={windowSettings.level}
+                        onChange={(val) => {
+                            if (typeof val === 'number') {
+                                setWindowSettings({ level: val });
+                            }
+                        }}
+                        min={-1000}
+                        max={1000}
+                        hideControls
+                        classNames={{ input: styles.inlineInput }}
+                    />
                 </Group>
                 <Slider
-                    min={-1000}
-                    max={1000}
                     value={windowSettings.level}
                     onChange={(val) => setWindowSettings({ level: val })}
+                    min={-1000}
+                    max={1000}
+                    step={1}
                     color="teal"
+                    style={{ flex: 1 }}
                     styles={{
                         thumb: { width: rem(16), height: rem(16), border: '2px solid white' },
                         track: { height: rem(4) },
@@ -250,7 +290,7 @@ export default function CTWindowingToolSettings() {
                                 label="Please enter a name first"
                                 position="bottom"
                                 withArrow
-                                disabled={!nameError} // Only show when nameError is true
+                                disabled={!nameError && presetName !== ''}
                             >
                                 <Button
                                     fullWidth
@@ -258,15 +298,15 @@ export default function CTWindowingToolSettings() {
                                     radius="md"
                                     variant="outline"
                                     size="md"
-                                    disabled={nameError}
+                                    disabled={nameError || presetName === ''}
                                     className={styles.addButton}
                                     styles={{
                                         root: {
                                             borderColor: 'var(--mantine-color-blue-6)',
-                                            backgroundColor: nameError ? 'transparent' : 'inherit',
+                                            backgroundColor: nameError || presetName === '' ? 'transparent' : 'inherit',
                                             color: 'var(--mantine-color-blue-2)',
                                             transition: 'all 150ms ease',
-                                            opacity: nameError ? 0.4 : 1,
+                                            opacity: nameError || presetName === '' ? 0.4 : 1,
                                         },
                                         label: {
                                             fontWeight: 600,

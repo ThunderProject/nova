@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, {useRef, useEffect} from 'react';
 import styles from './ResizableDoubleNavbar.module.css';
 import { useUIStore } from '../../stores/uiStore.ts';
 
