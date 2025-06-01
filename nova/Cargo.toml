@@ -8,8 +8,17 @@ name = "nova"
 path = "src/lib.rs"
 
 [dependencies]
-dicom = "0.8.1"
-dicom-core = "0.8.1"
+dicom-pixeldata = { version = "0.8.1", features = ["ndarray"] }
 dicom-object = "0.8.1"
 anyhow = "1.0.98"
 serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+serde_repr = "0.1.20"
+rayon = "1.10.0"
+image = "0.25.6"
+cxx = "1.0.158"
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
+
+[build-dependencies]
+cxx-build = "1.0.158"
