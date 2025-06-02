@@ -1,18 +1,19 @@
 import {CTPresetSchema} from "../schemas/CTWindowingPresetSchema.ts";
-import {NovaApi} from "../nova_api/NovaApi.ts";
 import {logger} from "../lib/Logger.ts";
+import {FileSystem} from "../lib/FileSystem.ts";
 
 export class CTWindowingPresetsLoader {
     public static async load(): Promise<Record<string, { width: number, level: number }> | null> {
         try {
             const path = "D:/repos/nova/nova-web/src/assets/CT/windowingPresets.json";
-            const fileContents = await NovaApi.readFile(path);
-            if(!fileContents) {
-                logger.error(`WindowingPresetsLoader: Failed to read file ${path}`);
+            const fileContents = await FileSystem.read(path);
+
+            if(fileContents.hasError()) {
+                logger.error(`WindowingPresetsLoader: Failed to read file ${fileContents.error}`);
                 return null;
             }
 
-            const parsed = JSON.parse(fileContents);
+            const parsed = JSON.parse(fileContents.value);
             const result = CTPresetSchema.safeParse(parsed);
 
             if(!result.success) {

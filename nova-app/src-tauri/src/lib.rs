@@ -1,16 +1,5 @@
-mod FileManager;
-use tokio::runtime::Runtime;
-
-#[tauri::command]
-fn greet(name: &str) -> String {
-    println!("Hello from tauri, {}!", name);
-    format!("Hello from tauri, {}!", name)
-}
-
-#[tauri::command]
-async fn read_file_to_string(name: String) -> Result<String, String> {
-    FileManager::FileManager::read(name).await
-}
+mod commands;
+use crate::commands::FileSystem::file_system::*;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -27,7 +16,17 @@ pub fn run() {
     }
 
     builder
-        .invoke_handler(tauri::generate_handler![greet, read_file_to_string])
+        .invoke_handler(tauri::generate_handler![
+            read_file_to_string,
+            create_dir,
+            create_dir_recursive,
+            remove_dir,
+            remove_dir_recursive,
+            remove_file,
+            rename_path,
+            path_exists,
+            write_file
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
