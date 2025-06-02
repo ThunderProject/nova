@@ -1,35 +1,40 @@
 import toast from "react-hot-toast";
 import {invoke} from "@tauri-apps/api/core";
-import {logger} from "../lib/Logger.ts";
 
-const NovaApiCommandNames = {
+export const NovaCommand = {
     ReadFileToString: 'read_file_to_string',
+    CreateDir: 'create_dir',
+    CreateDirRecursive: 'create_dir_recursive',
+    RemoveDir: 'remove_dir',
+    RemoveDirRecursive: 'remove_dir_recursive',
+    RemoveFile: 'remove_file',
+    RenamePath: 'rename_path',
+    PathExists: 'path_exists',
+    WriteFile: 'write_file',
 } as const;
 
-type NovaCommands = {
-    [NovaApiCommandNames.ReadFileToString]: { params: { name: string }; result: string };
+type NovaCommandMap = {
+    [NovaCommand.ReadFileToString]: { params: { file: string }; result: string };
+    [NovaCommand.CreateDir]: { params: { dir: string }; result: boolean };
+    [NovaCommand.CreateDirRecursive]: { params: { dir: string }; result: boolean };
+    [NovaCommand.RemoveDir]: { params: { dir: string }; result: boolean };
+    [NovaCommand.RemoveDirRecursive]: { params: { dir: string }; result: boolean };
+    [NovaCommand.RemoveFile]: { params: { file: string }; result: boolean };
+    [NovaCommand.RenamePath]: { params: { from: string; to: string }; result: boolean };
+    [NovaCommand.PathExists]: { params: { path: string }; result: boolean };
+    [NovaCommand.WriteFile]: { params: { path: string; contents: string }; result: boolean };
 };
 
-async function invokeNovaCommand<K extends keyof NovaCommands>(
+export async function invokeNovaCommand<K extends keyof NovaCommandMap>(
     command: K,
-    params: NovaCommands[K]['params'],
-): Promise<NovaCommands[K]['result']> {
-    return invoke<NovaCommands[K]['result']>(command, params);
+    params: NovaCommandMap[K]['params'],
+): Promise<NovaCommandMap[K]['result']> {
+    return invoke<NovaCommandMap[K]['result']>(command, params);
 }
 
 export class NovaApi {
     async dicom_open(path: string): Promise<void> {
         const response = await invoke<string>('greet', {name: path})
         toast.success(response);
-    }
-
-    public static async readFile(path: string): Promise<string | null> {
-        try {
-            return await invokeNovaCommand(NovaApiCommandNames.ReadFileToString, {name: path});
-        }
-        catch (error) {
-            logger.error(`NovaApi: readFile got error: ${error}`);
-            return null;
-        }
     }
 }
