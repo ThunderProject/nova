@@ -7,13 +7,13 @@ import {
     Text,
     Title,
     TextInput,
-    Collapse, Slider, rem, Select,
+    Collapse, Slider, rem,
     Paper, Tooltip, Checkbox,
 } from '@mantine/core';
 import {
     IconPlus,
     IconInfoCircle,
-    IconAlertTriangle
+    IconAlertTriangle,
 } from '@tabler/icons-react';
 import {useEffect, useState} from 'react';
 import { useViewerToolsStore } from '../../stores/ViewerToolStore';
@@ -21,8 +21,8 @@ import styles from './CTWindowingToolSettings.module.css'
 import toast from "react-hot-toast";
 import {CTWindowingPresetsLoader} from "../../utils/CTWindowingPresetsLoader.ts";
 import {logger} from "../../lib/Logger.ts";
-
-type PresetName = 'Brain' | 'Lung' | 'Bone' | 'SoftTissue';
+import {modals} from "@mantine/modals";
+import {PresetSelect} from "./PresetSelect.tsx";
 
 const successToast = (message: string) =>
     toast.success(message, {
@@ -43,18 +43,21 @@ const defaultPresetWindowWidth = 400;
 const defaultPresetWindowLevel = 40;
 
 export default function CTWindowingToolSettings() {
-    const { windowSettings, setWindowSettings, addPreset, userPresets, setUserPresets} = useViewerToolsStore();
+    const { windowSettings, setWindowSettings, addPreset, userPresets, setUserPresets, activePreset, setActivePreset } = useViewerToolsStore();
     const [showAddPreset, setShowAddPreset] = useState(false);
 
     const [presetName, setPresetName] = useState('');
     const [presetWidth, setPresetWidth] = useState<number | ''>(defaultPresetWindowWidth);
     const [presetLevel, setPresetLevel] = useState<number | ''>(defaultPresetWindowLevel);
     const [nameError, setNameError] = useState(false);
-    const [duplicateWarning, setDuplicateWarning] = useState(false);
-    const existingPresetNames = Object.keys(userPresets).map(name => name.toLowerCase());
+    const [duplicateWarning, setDuplicateWarning] = useState(false)
 
     useEffect(() => {
         const load = async () => {
+            if(Object.keys(userPresets).length !== 0) {
+                return;
+            }
+
             const presets = await CTWindowingPresetsLoader.load();
             if(!presets) {
                 logger.error("Failed to load presets");
@@ -63,11 +66,15 @@ export default function CTWindowingToolSettings() {
             setUserPresets(presets)
         }
         void load();
-    }, [setUserPresets])
+    }, [setUserPresets, userPresets])
 
-    const handlePresetChange = (preset: string | null) => {
+    const handleSelect = (preset: string | null) => {
         if (preset && preset in userPresets) {
-            setWindowSettings(userPresets[preset as PresetName]);
+            setWindowSettings(userPresets[preset]);
+            setActivePreset(preset);
+        }
+        else {
+            setActivePreset(null)
         }
     };
 
@@ -88,39 +95,50 @@ export default function CTWindowingToolSettings() {
         successToast('Preset added successfully');
 
         setPresetName('');
-        setPresetWidth(defaultPresetWindowWidth);
-        setPresetLevel(defaultPresetWindowLevel);
+        setPresetWidth(presetWidth);
+        setPresetLevel(presetLevel);
         setShowAddPreset(false);
         setDuplicateWarning(false);
+        setNameError(false);
+        setWindowSettings(userPresets[presetName]);
+        setActivePreset(presetName);
+    };
+
+    const handleDelete = (name: string) => {
+        modals.openConfirmModal( {
+            title: 'Delete Preset',
+            centered: true,
+            children: (
+                <Text size="sm">
+                    Are you sure you want to delete the <strong>{name}</strong> preset? This action cannot be undone.
+                </Text>
+            ),
+            labels: { confirm: 'Delete', cancel: 'Cancel' },
+            confirmProps: { color: 'red' },
+            onConfirm: () => {
+                const updatedPresets = { ...userPresets };
+                delete updatedPresets[name];
+                setUserPresets(updatedPresets);
+
+                if (activePreset === name) {
+                    setActivePreset(null);
+                }
+
+                successToast(`Deleted preset "${name}"`);
+            },
+        });
     };
 
     return (
         <Stack gap="lg" mt="md">
             <Box px="md">
                 <Title order={6} mb="xs">Preset</Title>
-                <Select
-                    data={Object.keys(userPresets)}
-                    placeholder="Select preset"
-                    onChange={handlePresetChange}
-                    value={
-                        (Object.entries(userPresets).find(
-                            ([, v]) =>
-                                v.width === windowSettings.width &&
-                                v.level === windowSettings.level
-                        )?.[0] as PresetName) || null
-                    }
-                    radius="md"
-                    withCheckIcon={false}
-                    classNames={{
-                        input: styles.selectInput, // 👈 targets input wrapper
-                    }}
-                    maxDropdownHeight={"200"}
-                    scrollAreaProps={{ scrollbarSize: 6, type: 'auto'}}
-                    styles={{
-                        input: {
-                            transition: 'all 150ms ease',
-                        },
-                    }}
+
+                <PresetSelect
+                    presets={userPresets}
+                    activePreset={activePreset}
+                    onSelect={handleSelect}
+                    onDelete={handleDelete}
                 />
             </Box>
 
@@ -157,7 +175,6 @@ export default function CTWindowingToolSettings() {
                 />
             </Box>
 
-
             <Box px="md">
                 <Group justify="space-between" align="center" mb="xs">
                     <Title order={6} mb={0}>
@@ -190,7 +207,8 @@ export default function CTWindowingToolSettings() {
                     }}
                 />
             </Box>
-            <Box px="md">
+
+            <Box px="md" mt="md">
                 <Group justify="space-between" mb="xs">
                     <Button
                         variant="light"
@@ -235,7 +253,9 @@ export default function CTWindowingToolSettings() {
                                 onChange={(e) => {
                                     const value = e.currentTarget.value;
                                     const isEmpty = (str: string) => (!str?.trim().length);
-                                    const isDuplicate = existingPresetNames.includes(value.toLowerCase());
+                                    const isDuplicate = Object.keys(userPresets)
+                                        .map(n => n.toLowerCase())
+                                        .includes(value.toLowerCase());
 
                                     const empty = isEmpty(value)
 
