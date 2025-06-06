@@ -219,6 +219,7 @@ export default function CTWindowingToolSettings() {
                             setShowAddPreset((value) => {
                                 const next = !value;
                                 if (!next) {
+                                    setPresetName('');
                                     setDuplicateWarning(false);
                                     setNameError(false);
                                 }
