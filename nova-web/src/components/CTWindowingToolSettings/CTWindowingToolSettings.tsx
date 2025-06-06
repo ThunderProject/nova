@@ -215,7 +215,16 @@ export default function CTWindowingToolSettings() {
                         size="xs"
                         fullWidth={true}
                         leftSection={<IconPlus size={14} />}
-                        onClick={() => setShowAddPreset((v) => !v)}
+                        onClick={() => {
+                            setShowAddPreset((value) => {
+                                const next = !value;
+                                if (!next) {
+                                    setDuplicateWarning(false);
+                                    setNameError(false);
+                                }
+                                return next;
+                            });
+                        }}
                     >
                         {showAddPreset ? 'Cancel' : 'Add Preset'}
                     </Button>
