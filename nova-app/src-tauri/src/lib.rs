@@ -1,12 +1,14 @@
 mod commands;
-use crate::commands::FileSystem::file_system::*;
+use crate::commands::file_system::file_system::*;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(debug_assertions)]
     // let devtools = tauri_plugin_devtools::init();
     let fs = tauri_plugin_fs::init();
-    let mut builder = tauri::Builder::default().plugin(fs);
+    let mut builder = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(fs);
 
     #[cfg(debug_assertions)]
     {

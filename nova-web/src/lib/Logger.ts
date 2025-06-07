@@ -32,11 +32,11 @@ export class logger {
         const decoratedMsg = `${color}<${level}> ${new Date().toISOString()}: ${msg}${logger.#reset}`
 
         switch (level) {
-            case loglevel.debug: return  console.debug(decoratedMsg)
-            case loglevel.info:  return  console.info(decoratedMsg)
-            case loglevel.warn:  return  console.warn(decoratedMsg)
-            case loglevel.error:  return  console.error(decoratedMsg)
-            case loglevel.fatal:  return  console.error(decoratedMsg)
+            case loglevel.debug: return console.debug(decoratedMsg)
+            case loglevel.info: return console.info(decoratedMsg)
+            case loglevel.warn: return console.warn(decoratedMsg)
+            case loglevel.error: return console.error(decoratedMsg)
+            case loglevel.fatal: return console.error(decoratedMsg)
         }
     };
 

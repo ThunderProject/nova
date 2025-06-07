@@ -1,7 +1,6 @@
 import {Tabs, ActionIcon, Tooltip, rem} from '@mantine/core';
 import {
     IconFileArrowRight,
-    IconFolderOpen,
     IconDeviceFloppy,
     IconMenu2
 } from '@tabler/icons-react';
@@ -9,6 +8,8 @@ import classes from './MainTabBar.module.css';
 import {useEffect, useRef, useState} from "react";
 import nova_logo from '../../assets/nova_icon.png';
 import { useNavigate, useLocation } from 'react-router-dom';
+import {logger} from "../../lib/Logger.ts";
+import {OpenProjectButton} from "../OpenProjectButton.tsx";
 
 const tabs = [
     { label: 'Patient data', path: '/patients' },
@@ -63,19 +64,14 @@ export function MainTabBar() {
                 <img src={nova_logo} alt="Nova logo" style={{width: logoSize, height: logoSize, marginLeft: 4, marginRight: 8}}/>
                 {menuOpen ? (
                     <div ref={menuRef} style={{display: 'inline-flex', gap: rem(8)}}>
-                        <Tooltip label="Open project">
-                            <ActionIcon
-                                variant="subtle"
-                                size="lg"
-                                color="gray"
-                                onClick={() => {
-                                    setMenuOpen(false);
-                                }}
-                            >
-                                <IconFolderOpen size={iconSize}/>
-                            </ActionIcon>
-                        </Tooltip>
-
+                        <OpenProjectButton
+                            iconSize={iconSize}
+                            onClicked={ () => setMenuOpen(false) }
+                            onFileSelected={(file) => {
+                                logger.info(`selected file ${file}`);
+                            }}
+                        >
+                        </OpenProjectButton>
                         <Tooltip label="Save project">
                             <ActionIcon
                                 variant="subtle"
