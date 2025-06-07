@@ -1,4 +1,5 @@
-mod dicom;
+pub mod dicom;
+pub use dicom::bridge::dicom_bridge::dicom_api::init;
 
 pub fn add(left: u64, right: u64) -> u64 {
     left + right

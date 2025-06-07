@@ -27,4 +27,5 @@ tauri-plugin-fs = "2.3.0"
 nova = { path = "../../nova" }
 tokio = "1.45.1"
 anyhow = "1.0.98"
+tauri-plugin-dialog = "2"
 
