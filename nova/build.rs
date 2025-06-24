@@ -14,6 +14,7 @@ fn main() {
     let lib_dir = manifest_dir.join(format!("src/dicom/cxx/build/x86_64/{}", profile));
     
     println!("cargo:rustc-link-search=native={}", lib_dir.display());
+    println!("cargo:rustc-link-core=dylib=dicom_api");
     println!("cargo:rustc-link-lib=dylib=dicom_api");
     
     if cfg!(target_os = "windows") {
@@ -25,7 +26,7 @@ fn main() {
 
         if dll_src.exists() {
             fs::copy(&dll_src, &dll_dst).expect(format!("Failed to copy dicom_api.dll into target dir. dir: {}", dll_src.to_str().unwrap()).as_str());
-            println!("cargo:warning=Copied dicom_api.dll to {}", dll_dst.display());
+            println!("cargo:info=Copied dicom_api.dll to {}", dll_dst.display());
         } else {
             println!("cargo:warning=dicom_api.dll not found at {}", dll_src.display());
         }

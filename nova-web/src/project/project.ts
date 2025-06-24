@@ -1,6 +1,7 @@
+import {NovaApi} from "../nova_api/NovaApi.ts";
 
 export class Project {
-    open(file: string) {
-
+    static async open(file: string) {
+        await NovaApi.openProject(file);
     }
 }
