@@ -1,5 +1,6 @@
 import toast from "react-hot-toast";
 import {invoke} from "@tauri-apps/api/core";
+import {logger} from "../lib/Logger.ts";
 
 export const NovaCommand = {
     ReadFileToString: 'read_file_to_string',
@@ -11,6 +12,7 @@ export const NovaCommand = {
     RenamePath: 'rename_path',
     PathExists: 'path_exists',
     WriteFile: 'write_file',
+    OpenProject: 'open_project',
 } as const;
 
 type NovaCommandMap = {
@@ -23,6 +25,7 @@ type NovaCommandMap = {
     [NovaCommand.RenamePath]: { params: { from: string; to: string }; result: boolean };
     [NovaCommand.PathExists]: { params: { path: string }; result: boolean };
     [NovaCommand.WriteFile]: { params: { path: string; contents: string }; result: boolean };
+    [NovaCommand.OpenProject]: { params: { file: string; }; result: void };
 };
 
 export async function invokeNovaCommand<K extends keyof NovaCommandMap>(
@@ -36,5 +39,15 @@ export class NovaApi {
     async dicom_open(path: string): Promise<void> {
         const response = await invoke<string>('greet', {name: path})
         toast.success(response);
+    }
+
+    static async openProject(file: string): Promise<void> {
+        try {
+            return await invokeNovaCommand(NovaCommand.OpenProject, {file: file});
+        }
+        catch (error) {
+            const errMsg: string = `Failed to open project "${file}". Reason: ${error}`;
+            logger.error(errMsg);
+        }
     }
 }

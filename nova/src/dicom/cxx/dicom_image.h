@@ -92,9 +92,9 @@ namespace nova::dcm {
     private:
         [[nodiscard]] bool fill_image_data();
         [[nodiscard]] image_dimensions resolve_image_dimensions() const;
-        [[nodiscard]] result<std::vector<uint8_t>> fetch_pixel_data();
-        [[nodiscard]] dicom_window fetch_windowing_data();
-        [[nodiscard]] cv::Mat apply_initial_windowing(const cv::Mat& hounsfieldMatrix);
+        [[nodiscard]] result<std::vector<uint8_t>> fetch_pixel_data() const;
+        [[nodiscard]] dicom_window fetch_windowing_data() const;
+        [[nodiscard]] cv::Mat apply_initial_windowing(const cv::Mat& hounsfieldMatrix) const;
         [[nodiscard]] bool is_export_supported() const noexcept;
         [[nodiscard]] std::optional<modality> resolve_modality() const;
 

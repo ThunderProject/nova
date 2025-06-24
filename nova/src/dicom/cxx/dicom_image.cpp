@@ -170,7 +170,7 @@ dcm::image_dimensions dcm::dicom_image::resolve_image_dimensions() const {
     };
 }
 
-result<std::vector<uint8_t>> dcm::dicom_image::fetch_pixel_data() {
+result<std::vector<uint8_t>> dcm::dicom_image::fetch_pixel_data() const {
     DEBUG_ASSERT(m_dicomImage != nullptr);
 
     std::vector<uint8_t> buffer(m_dicomImage->GetBufferLength());
@@ -183,7 +183,7 @@ result<std::vector<uint8_t>> dcm::dicom_image::fetch_pixel_data() {
     return buffer;
 }
 
-dcm::dicom_window dcm::dicom_image::fetch_windowing_data() {
+dcm::dicom_window dcm::dicom_image::fetch_windowing_data() const {
     DEBUG_ASSERT(m_dicomDataSet != nullptr);
 
     const auto parse_window_values = [](const std::string& input) -> std::vector<float> {
@@ -220,7 +220,7 @@ dcm::dicom_window dcm::dicom_image::fetch_windowing_data() {
     };
 }
 
-cv::Mat dcm::dicom_image::apply_initial_windowing(const cv::Mat& hounsfieldMatrix) {
+cv::Mat dcm::dicom_image::apply_initial_windowing(const cv::Mat& hounsfieldMatrix) const {
     DEBUG_ASSERT(m_imageData != std::nullopt);
     DEBUG_ASSERT(m_imageData->windowing.level.size() >= 1 && m_imageData->windowing.width.size() >= 1);
 

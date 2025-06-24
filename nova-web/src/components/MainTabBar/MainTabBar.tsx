@@ -8,8 +8,8 @@ import classes from './MainTabBar.module.css';
 import {useEffect, useRef, useState} from "react";
 import nova_logo from '../../assets/nova_icon.png';
 import { useNavigate, useLocation } from 'react-router-dom';
-import {logger} from "../../lib/Logger.ts";
 import {OpenProjectButton} from "../OpenProjectButton.tsx";
+import {Project} from "../../project/project.ts";
 
 const tabs = [
     { label: 'Patient data', path: '/patients' },
@@ -67,8 +67,8 @@ export function MainTabBar() {
                         <OpenProjectButton
                             iconSize={iconSize}
                             onClicked={ () => setMenuOpen(false) }
-                            onFileSelected={(file) => {
-                                logger.info(`selected file ${file}`);
+                            onFileSelected={async (file) => {
+                                await Project.open(file)
                             }}
                         >
                         </OpenProjectButton>
