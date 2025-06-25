@@ -1,14 +1,14 @@
-use tracing::{debug, error, info};
-use tracing::log::warn;
+use tracing::{debug, error, info, warn};
 
 #[tauri::command]
 pub fn log(level: String, msg: String) {
+    let target = "nova-web";
     match level.as_str() {
-        "debug" => debug!("{}", msg),
-        "info" => info!("{}", msg),
-        "warn" => warn!("{}", msg),
-        "error" => error!("{}", msg),
-        "fatal" => error!("{}", msg),
-        _ => {},  
+        "debug" => debug!(target: "nova-web", "{}", msg),
+        "info" => info!(target: "nova-web", "{}", msg),
+        "warn" => warn!(target: "nova-web", "{}", msg),
+        "error" => error!(target: "nova-web", "{}", msg),
+        "fatal" => error!(target: "nova-web", "{}", msg),
+        _ => {},
     }
 }
