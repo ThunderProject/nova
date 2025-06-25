@@ -20,25 +20,7 @@ export class logger {
     }
 
     #log = <Type>(level: loglevel, msg: Type): void => {
-        const decoratedMsg = `${msg}`
-
-        NovaApi.Log(level.toString(), decoratedMsg);
-
-        switch (level) {
-            case loglevel.debug:
-                console.debug(decoratedMsg);
-                break
-            case loglevel.info:
-                console.info(decoratedMsg);
-                break;
-            case loglevel.warn:
-                console.warn(decoratedMsg);
-                break;
-            case loglevel.error:
-            case loglevel.fatal:
-                console.error(decoratedMsg)
-                break;
-        }
+        NovaApi.Log(level.toString(), `${msg}`);
     };
 
     static debug = <Type>(msg: Type): void => logger.#get().#log(loglevel.debug,msg);
