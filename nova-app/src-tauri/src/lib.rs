@@ -2,13 +2,14 @@ mod commands;
 
 use std::fs::create_dir_all;
 use nova::application::App;
-use nova::core::zip::Zip;
-use tracing::{info, Level};
+use tracing::{Level};
 use tracing_subscriber::fmt::time::OffsetTime;
 use crate::commands::file_system::file_system::*;
 use crate::commands::project::project::*;
+use crate::commands::log::*;
 use time::{UtcOffset};
 use time::macros::format_description;
+use tracing_subscriber::fmt::format::FmtSpan;
 
 fn setup_logging() {
     let fmt = format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:6]");
@@ -32,12 +33,14 @@ fn setup_logging() {
         .with_max_level(Level::DEBUG)
         .with_file(false)
         .with_line_number(false)
-        .with_thread_ids(true) // include the thread ID of the current thread
+        .with_thread_ids(true)
         .with_thread_names(true)
-        .with_target(true)
+        .with_target(false)
         .with_timer(timer)
         .with_writer(writer)
-        .with_ansi(false);
+        .with_ansi(false)
+        .with_span_events(FmtSpan::NONE);
+
     builder.init();
 }
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -48,7 +51,8 @@ pub fn run() {
     //#[cfg(debug_assertions)]
     // let devtools = tauri_plugin_devtools::init();
     let fs = tauri_plugin_fs::init();
-    let mut builder = tauri::Builder::default()
+
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(fs);
 
@@ -71,7 +75,8 @@ pub fn run() {
             path_exists,
             write_file,
             open_project,
-            is_empty
+            is_empty,
+            log
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

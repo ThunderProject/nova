@@ -10,7 +10,7 @@ import nova_logo from '../../assets/nova_icon.png';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {OpenProjectButton} from "../OpenProjectButton.tsx";
 import {Project} from "../../project/project.ts";
-import {CreateProjectButton} from "../CreateProjectButton.tsx";
+import {CreateProjectButton} from "../CreateProjectButton/CreateProjectButton.tsx";
 
 const tabs = [
     { label: 'Patient data', path: '/patients' },

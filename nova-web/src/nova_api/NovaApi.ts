@@ -14,6 +14,7 @@ export const NovaCommand = {
     WriteFile: 'write_file',
     OpenProject: 'open_project',
     IsEmpty: 'is_empty',
+    Log: 'log'
 } as const;
 
 type NovaCommandMap = {
@@ -28,6 +29,7 @@ type NovaCommandMap = {
     [NovaCommand.WriteFile]: { params: { path: string; contents: string }; result: boolean };
     [NovaCommand.OpenProject]: { params: { file: string; }; result: void };
     [NovaCommand.IsEmpty]: { params: { path: string; }; result: boolean };
+    [NovaCommand.Log]: { params: { level: string; msg: string }; result: void };
 };
 
 export async function invokeNovaCommand<K extends keyof NovaCommandMap>(
@@ -50,6 +52,15 @@ export class NovaApi {
         catch (error) {
             const errMsg: string = `Failed to open project "${file}". Reason: ${error}`;
             logger.error(errMsg);
+        }
+    }
+
+    static Log(level: string, msg: string): void {
+        try {
+            return void invokeNovaCommand(NovaCommand.Log, {level: level, msg: msg});
+        }
+        catch (error) {
+            void error;
         }
     }
 }
