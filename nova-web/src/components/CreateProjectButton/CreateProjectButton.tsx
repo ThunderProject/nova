@@ -11,11 +11,11 @@ import {
 } from '@mantine/core';
 import {IconAlertTriangle, IconFolder, IconPlus, IconX} from '@tabler/icons-react';
 import {useEffect, useState} from 'react';
-import { logger } from '../lib/Logger.ts';
+import { logger } from '../../lib/Logger.ts';
 import { open } from '@tauri-apps/plugin-dialog'
-import {FileSystem} from "../lib/FileSystem.ts";
+import {FileSystem} from "../../lib/FileSystem.ts";
 import styles from './CreateProjectButton.module.css';
-import {Project} from "../project/project.ts";
+import {Project} from "../../project/project.ts";
 
 interface OpenProjectButtonProps {
     iconSize?: number;
