@@ -10,18 +10,16 @@ import {
     Stack,
 } from '@mantine/core';
 import {IconAlertTriangle, IconFolder, IconPlus, IconX} from '@tabler/icons-react';
-import {useEffect, useRef, useState} from 'react';
+import {useEffect, useState} from 'react';
 import { logger } from '../lib/Logger.ts';
 import { open } from '@tauri-apps/plugin-dialog'
 import {FileSystem} from "../lib/FileSystem.ts";
 import styles from './CreateProjectButton.module.css';
-import toast from "react-hot-toast";
 
 interface OpenProjectButtonProps {
     iconSize?: number;
     onClicked: () => void;
     onClosed: () => void;
-    onFileSelected: (filePath: string) => void;
     modalOpen: boolean;
     setModalOpen: (open: boolean) => void;
 }
@@ -32,17 +30,17 @@ export function CreateProjectButton({
                                         iconSize = 24,
                                         onClosed,
                                         onClicked,
-                                        onFileSelected,
                                         modalOpen,
                                         setModalOpen
                                     }: OpenProjectButtonProps) {
 
     const [baseFolder, setBaseFolder] = useState('');
     const [projectName, setProjectName] = useState('');
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
+    const [selectedFilesInput, setSelectedFilesInput] = useState('');
+    const [selectedFilesError, setSelectedFilesError] = useState<string | null>(null);
     const [folderNotEmpty, setFolderNotEmpty] = useState(false);
     const folderSeparator = baseFolder.includes('\\') ? '\\' : '/';
-    const modalRef = useRef<HTMLDivElement>(null);
     const [shake, setShake] = useState(false);
 
     const fullProjectPath = (() => {
@@ -74,22 +72,101 @@ export function CreateProjectButton({
                     logger.warn("Selected folder is not empty. Contents may be overwritten");
                 }
             }
+            else if(selectedPath === null) {
+                //User cancelled the selection
+                setFolderNotEmpty(false);
+                setBaseFolder('');
+            }
+            else {
+                //Not sure if wee can end up here, but let's be robust and handle it.
+                logger.warn("Selected folder path has an incorrect type. Expected: string")
+                setBaseFolder('');
+                setFolderNotEmpty(false);
+            }
         }
         catch (error) {
-            logger.error(`Failed t select folder: ${error}`);
+            logger.error(`Failed to select folder: ${error}`);
+            setBaseFolder('');
         }
     };
 
-    const handleCreate = () => {
+    const handleImportFiles = async () => {
+        try {
+            const files = await open({
+                title: "Import files",
+                multiple: true,
+                directory: false,
+                filters: [{ name: 'Files', extensions: supportedFileExtensions }],
+            });
+
+            if(files === null) {
+                setSelectedFiles([]);
+                setSelectedFilesInput('');
+                return;
+            }
+
+            const filesArray = Array.isArray(files) ? files : [files];
+            setSelectedFiles(filesArray);
+            setSelectedFilesInput(filesArray.join('; '));
+        }
+        catch (error) {
+            logger.error(`Failed to import files: ${error}`);
+        }
+    }
+
+    const handleFilesInputChange = (value: string) => {
+        setSelectedFilesInput(value);
+        const parsed = value
+            .split(';')
+            .map(f => f.trim())
+            .filter(f => f.length > 0);
+        setSelectedFiles(parsed);
+    }
+
+    const handleCreate = async () => {
+        if(!fullProjectPath) {
+            return;
+        }
+
+        if (selectedFiles !== null) {
+            logger.debug(`Selected files: ${selectedFiles}`);
+
+            const invalidFiles = selectedFiles.filter(file => {
+                const ext = file.split('.').pop()?.toLowerCase();
+                return !supportedFileExtensions.includes(ext || '');
+            })
+
+            const checkFileExist = await Promise.all(
+                selectedFiles.map((file) => FileSystem.exist(file))
+            );
+
+            const selectedFilesExist = checkFileExist.every(Boolean);
+
+            if(!selectedFilesExist || invalidFiles.length > 0) {
+                const errorMessage = 'One or more selected files do not exist, or have an unsupported file format (only .zip and .dcm are supported)';
+                setSelectedFilesError(errorMessage);
+                setShake(true);
+                setTimeout(() => setShake(false), 300);
+                logger.error(errorMessage);
+                return;
+            }
+            else {
+                setSelectedFilesError(null);
+            }
+        }
+
         setModalOpen(false);
         logger.debug(`Creating project at: ${fullProjectPath}`);
-        if (selectedFile) logger.debug(`Selected file: ${selectedFile.name}`);
-        onFileSelected(fullProjectPath);
     };
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+            const modalInner = document.querySelector('.mantine-Modal-inner') as HTMLElement | null;
+            const modalHeader = document.querySelector('.mantine-Modal-header') as HTMLElement | null;
+
+            const target = event.target as Node;
+
+            if (modalInner && !modalInner.contains(target) && !(modalHeader && modalHeader.contains(target))) {
                 setShake(true);
                 setTimeout(() => setShake(false), 300);
             }
@@ -139,10 +216,10 @@ export function CreateProjectButton({
                 }}
                 classNames={{
                     close: styles.customClose,
+                    content: shake ? styles.shake : undefined,
                 }}
                 radius="md"
             >
-
                 <Stack gap="sm" mb="md">
                     <div>
                         <Group align="center" gap="sm">
@@ -201,12 +278,12 @@ export function CreateProjectButton({
                                 size="sm"
                                 radius="md"
                                 placeholder="No file selected"
-                                value={selectedFile?.name || ''}
-                                readOnly
+                                value={selectedFilesInput}
+                                onChange={(e) => handleFilesInputChange(e.currentTarget.value)}
                                 rightSection={
                                     <Tooltip label="Browse...">
                                         <ActionIcon
-                                            onClick={handleChooseDirectory}
+                                            onClick={handleImportFiles}
                                             variant="subtle"
                                             color="gray"
                                             radius="xl"
@@ -218,22 +295,39 @@ export function CreateProjectButton({
                                 style={{flex: 1}}
                             />
                         </Group>
+                        {selectedFilesError && (
+                            <Group gap={4} align="center" mt={4}>
+                                <IconX  size={16} color="var(--mantine-color-red-6)" />
+                                <Text size="xs" c="red">
+                                    {selectedFilesError}
+                                </Text>
+                            </Group>
+                        )}
                     </div>
                 </Stack>
 
                 <Divider my="sm"/>
 
                 <Group>
-                    <Button variant="default" onClick={() => {
+                    <Button
+                        size="md"
+                        variant="default"
+                        onClick={() => {
                         setModalOpen(false);
                         onClosed();
                     }}>
                         Cancel
                     </Button>
-                    <Button onClick={handleCreate} disabled={!fullProjectPath}>
+                    <Button
+                        onClick={handleCreate}
+                        disabled={!fullProjectPath || !projectName}
+                        className={styles.createButton}
+                        size="md"
+                    >
                         Create
                     </Button>
                 </Group>
+
             </Modal>
         </>
     );

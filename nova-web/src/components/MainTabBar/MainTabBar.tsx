@@ -70,9 +70,6 @@ export function MainTabBar() {
                             iconSize={iconSize}
                             onClicked={() => {}}
                             onClosed={() => setMenuOpen(false) }
-                            onFileSelected={async (file) => {
-                                await Project.open(file)
-                            }}
                             modalOpen={createProjectModalOpen}
                             setModalOpen={setCreateProjectModalOpen}
                         >
