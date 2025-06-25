@@ -101,4 +101,15 @@ export class NovaFileSystemApi {
             return false;
         }
     }
+
+    public static async isEmpty(path: string): Promise<boolean> {
+        try {
+            return await invokeNovaCommand(NovaCommand.IsEmpty, {path: path});
+        }
+        catch (error) {
+            const errMsg: string = `Failed to check if folder "${path}" is empty". Reason: ${error}`;
+            logger.error(errMsg);
+            return false;
+        }
+    }
 }

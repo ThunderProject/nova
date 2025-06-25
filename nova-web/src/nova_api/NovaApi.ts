@@ -13,6 +13,7 @@ export const NovaCommand = {
     PathExists: 'path_exists',
     WriteFile: 'write_file',
     OpenProject: 'open_project',
+    IsEmpty: 'is_empty',
 } as const;
 
 type NovaCommandMap = {
@@ -26,6 +27,7 @@ type NovaCommandMap = {
     [NovaCommand.PathExists]: { params: { path: string }; result: boolean };
     [NovaCommand.WriteFile]: { params: { path: string; contents: string }; result: boolean };
     [NovaCommand.OpenProject]: { params: { file: string; }; result: void };
+    [NovaCommand.IsEmpty]: { params: { path: string; }; result: boolean };
 };
 
 export async function invokeNovaCommand<K extends keyof NovaCommandMap>(
