@@ -86,7 +86,7 @@ export function CreateProjectButton({
                 setFolderNotEmpty(!isFolderEmpty);
 
                 if(!isFolderEmpty) {
-                    logger.warn("Selected folder is not empty. Contents may be overwritten");
+                    logger.warn("Selected folder is not empty. Contents may be overwritten or deleted");
                 }
             }
             else if(selectedPath === null) {
@@ -312,7 +312,7 @@ export function CreateProjectButton({
                             <Group gap={4} align="center" mt={4}>
                                 <IconAlertTriangle size={16} color="var(--mantine-color-yellow-6)"/>
                                 <Text size="xs" c="yellow">
-                                    Folder is not empty. Files may be overwritten.
+                                    Folder is not empty. Files may be overwritten or deleted.
                                 </Text>
                             </Group>
                         )}
