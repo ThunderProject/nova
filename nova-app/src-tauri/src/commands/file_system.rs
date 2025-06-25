@@ -107,10 +107,7 @@ pub mod file_system {
         }
 
         pub async fn exists(path: impl AsRef<Path>) -> bool {
-            match fs::try_exists(path).await {
-                Ok(_) => true,
-                Err(_) => false,
-            }
+            fs::try_exists(path).await.unwrap_or_else(|_| false)
         }
 
         pub async fn write(path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> bool {
