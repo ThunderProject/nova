@@ -1,3 +1,5 @@
+import {NovaApi} from "../nova_api/NovaApi.ts";
+
 enum loglevel {
     debug = "debug",
     info = "info",
@@ -17,26 +19,25 @@ export class logger {
         return logger.#instance;
     }
 
-    static #colors = {
-        [loglevel.debug]: '\x1b[32m',
-        [loglevel.info]: '\x1b[34m',
-        [loglevel.warn]: '\x1b[33m',
-        [loglevel.error]: '\x1b[31m',
-        [loglevel.fatal]: '\x1b[31m',
-    };
-
-    static #reset = '\x1b[0m';
-
     #log = <Type>(level: loglevel, msg: Type): void => {
-        const color = logger.#colors[level] ||  logger.#reset;
-        const decoratedMsg = `${color}<${level}> ${new Date().toISOString()}: ${msg}${logger.#reset}`
+        const decoratedMsg = `${msg}`
+
+        NovaApi.Log(level.toString(), decoratedMsg);
 
         switch (level) {
-            case loglevel.debug: return console.debug(decoratedMsg)
-            case loglevel.info: return console.info(decoratedMsg)
-            case loglevel.warn: return console.warn(decoratedMsg)
-            case loglevel.error: return console.error(decoratedMsg)
-            case loglevel.fatal: return console.error(decoratedMsg)
+            case loglevel.debug:
+                console.debug(decoratedMsg);
+                break
+            case loglevel.info:
+                console.info(decoratedMsg);
+                break;
+            case loglevel.warn:
+                console.warn(decoratedMsg);
+                break;
+            case loglevel.error:
+            case loglevel.fatal:
+                console.error(decoratedMsg)
+                break;
         }
     };
 
