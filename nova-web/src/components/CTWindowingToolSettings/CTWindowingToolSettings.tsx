@@ -124,6 +124,7 @@ export default function CTWindowingToolSettings() {
                     setActivePreset(null);
                 }
 
+                logger.debug(`Deleted preset "${name}"`);
                 successToast(`Deleted preset "${name}"`);
             },
         });
