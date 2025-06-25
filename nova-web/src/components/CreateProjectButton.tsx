@@ -7,7 +7,7 @@ import {
     TextInput,
     Text,
     Divider,
-    Stack,
+    Stack, Loader,
 } from '@mantine/core';
 import {IconAlertTriangle, IconFolder, IconPlus, IconX} from '@tabler/icons-react';
 import {useEffect, useState} from 'react';
@@ -42,6 +42,7 @@ export function CreateProjectButton({
     const [folderNotEmpty, setFolderNotEmpty] = useState(false);
     const folderSeparator = baseFolder.includes('\\') ? '\\' : '/';
     const [shake, setShake] = useState(false);
+    const [isCreating, setIsCreating] = useState(false);
 
     const fullProjectPath = (() => {
         if (!baseFolder) {
@@ -155,8 +156,14 @@ export function CreateProjectButton({
             }
         }
 
+        setIsCreating(true);
+        //for now simulate a delay
+        await new Promise((r) => setTimeout(r, 2000));
+
+        setIsCreating(false);
         setModalOpen(false);
         logger.debug(`Creating project at: ${fullProjectPath}`);
+        onClosed();
     };
 
     useEffect(() => {
@@ -220,6 +227,16 @@ export function CreateProjectButton({
                 }}
                 radius="md"
             >
+                {isCreating && (
+                    <div className={styles.overlay}>
+                        <div className={styles.spinnerContainer}>
+                            <Loader size="lg" />
+                            <Text size="md" mt="xs">
+                                Creating project <b>{projectName}</b>...
+                            </Text>
+                        </div>
+                    </div>
+                )}
                 <Stack gap="sm" mb="md">
                     <div>
                         <Group align="center" gap="sm">
