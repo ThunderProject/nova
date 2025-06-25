@@ -71,6 +71,7 @@ pub fn run() {
             path_exists,
             write_file,
             open_project,
+            is_empty
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

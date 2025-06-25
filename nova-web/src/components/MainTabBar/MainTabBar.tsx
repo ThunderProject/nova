@@ -10,6 +10,7 @@ import nova_logo from '../../assets/nova_icon.png';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {OpenProjectButton} from "../OpenProjectButton.tsx";
 import {Project} from "../../project/project.ts";
+import {CreateProjectButton} from "../CreateProjectButton.tsx";
 
 const tabs = [
     { label: 'Patient data', path: '/patients' },
@@ -20,12 +21,13 @@ const tabs = [
 export function MainTabBar() {
     const iconSize = 24;
     const logoSize = 24;
+    const [createProjectModalOpen, setCreateProjectModalOpen] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
-            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+            if (!createProjectModalOpen && menuRef.current && !menuRef.current.contains(e.target as Node)) {
                 setMenuOpen(false);
             }
         };
@@ -40,7 +42,7 @@ export function MainTabBar() {
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [menuOpen]);
+    }, [createProjectModalOpen, menuOpen]);
 
     const navigate = useNavigate();
     const location = useLocation();
@@ -64,6 +66,18 @@ export function MainTabBar() {
                 <img src={nova_logo} alt="Nova logo" style={{width: logoSize, height: logoSize, marginLeft: 4, marginRight: 8}}/>
                 {menuOpen ? (
                     <div ref={menuRef} style={{display: 'inline-flex', gap: rem(8)}}>
+                        <CreateProjectButton
+                            iconSize={iconSize}
+                            onClicked={() => {}}
+                            onClosed={() => setMenuOpen(false) }
+                            onFileSelected={async (file) => {
+                                await Project.open(file)
+                            }}
+                            modalOpen={createProjectModalOpen}
+                            setModalOpen={setCreateProjectModalOpen}
+                        >
+                        </CreateProjectButton>
+
                         <OpenProjectButton
                             iconSize={iconSize}
                             onClicked={ () => setMenuOpen(false) }
@@ -72,6 +86,7 @@ export function MainTabBar() {
                             }}
                         >
                         </OpenProjectButton>
+
                         <Tooltip label="Save project">
                             <ActionIcon
                                 variant="subtle"

@@ -49,6 +49,11 @@ pub mod file_system {
         FileSystem::write(path, contents).await
     }
 
+    #[tauri::command]
+    pub async fn is_empty(path: String) -> bool {
+        FileSystem::is_empty(path).await
+    }
+
     struct FileSystem;
 
     impl FileSystem {
@@ -111,6 +116,19 @@ pub mod file_system {
         pub async fn write(path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> bool {
             match fs::write(path, contents).await {
                 Ok(_) => true,
+                Err(_) => false,
+            }
+        }
+
+        pub async fn is_empty(path: impl AsRef<Path>) -> bool {
+            let path = path.as_ref();
+            
+            if !path.is_dir() {
+                return false;
+            }
+            
+            match fs::read_dir(path).await { 
+                Ok(mut entries) => entries.next_entry().await.transpose().is_none(),
                 Err(_) => false,
             }
         }

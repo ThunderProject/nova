@@ -37,4 +37,8 @@ export class FileSystem {
     public static async exist(path: string): Promise<boolean> {
         return NovaFileSystemApi.exist(path);
     }
+
+    public static async isEmpty(path: string): Promise<boolean> {
+        return NovaFileSystemApi.isEmpty(path);
+    }
 }
