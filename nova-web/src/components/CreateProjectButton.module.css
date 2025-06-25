@@ -78,7 +78,7 @@
 
 .spinnerContainer {
     backdrop-filter: blur(12px) saturate(150%);
-    background-color: rgba(18, 18, 20, 0.10);
+    background-color: rgba(18, 18, 20, 0.20);
     color: var(--mantine-color-gray-0);
     padding: 1rem 1.5rem;
     border-radius: var(--mantine-radius-lg);

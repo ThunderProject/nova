@@ -15,6 +15,7 @@ import { logger } from '../lib/Logger.ts';
 import { open } from '@tauri-apps/plugin-dialog'
 import {FileSystem} from "../lib/FileSystem.ts";
 import styles from './CreateProjectButton.module.css';
+import {Project} from "../project/project.ts";
 
 interface OpenProjectButtonProps {
     iconSize?: number;
@@ -44,6 +45,9 @@ export function CreateProjectButton({
     const [shake, setShake] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
 
+    const invalidProjectNameCharacters = ['/', '\\', ':', '*', '?', '"', '<', '>', '|'];
+    const [projectNameError, setProjectNameError] = useState<string | null>(null);
+
     const fullProjectPath = (() => {
         if (!baseFolder) {
             return '';
@@ -53,6 +57,18 @@ export function CreateProjectButton({
         }
         return `${baseFolder.replace(/[\\/]+$/, '')}${folderSeparator}${projectName.trim()}`;
     })();
+
+    const handleProjectNameChange = (value: string) => {
+        const invalidChar = value.split('').find(char => invalidProjectNameCharacters.includes(char));
+
+        if(invalidChar) {
+            setProjectNameError(`Project name contains an invalid character: "${invalidChar}"`)
+        }
+        else {
+            setProjectNameError(null);
+        }
+        setProjectName(value);
+    }
 
     const handleChooseDirectory = async () => {
         try {
@@ -160,9 +176,15 @@ export function CreateProjectButton({
         //for now simulate a delay
         await new Promise((r) => setTimeout(r, 2000));
 
+        logger.debug(`Creating project at: ${fullProjectPath}`);
+        await Project.createNewProject({
+            projectName: projectName,
+            workingDirectory: baseFolder,
+            importedFiles: selectedFiles
+        })
+
         setIsCreating(false);
         setModalOpen(false);
-        logger.debug(`Creating project at: ${fullProjectPath}`);
         onClosed();
     };
 
@@ -247,10 +269,18 @@ export function CreateProjectButton({
                                 withAsterisk
                                 radius="md"
                                 value={projectName}
-                                onChange={(e) => setProjectName(e.target.value)}
+                                onChange={(e) => handleProjectNameChange(e.currentTarget.value)}
                                 style={{flex: 1}}
                             />
                         </Group>
+                        {projectNameError && (
+                            <Group gap={4} align="center" mt={4}>
+                                <IconX  size={16} color="var(--mantine-color-red-6)" />
+                                <Text size="xs" c="red">
+                                    {projectNameError}
+                                </Text>
+                            </Group>
+                        )}
                     </div>
 
                     <div>
@@ -337,7 +367,7 @@ export function CreateProjectButton({
                     </Button>
                     <Button
                         onClick={handleCreate}
-                        disabled={!fullProjectPath || !projectName}
+                        disabled={!fullProjectPath || !projectName || projectNameError !== null}
                         className={styles.createButton}
                         size="md"
                     >
