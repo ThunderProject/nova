@@ -2,20 +2,54 @@ mod commands;
 
 use std::fs::create_dir_all;
 use nova::application::App;
-use tracing::{Level};
-use tracing_subscriber::fmt::time::OffsetTime;
+use tracing::{Event, Level, Subscriber};
 use crate::commands::file_system::file_system::*;
 use crate::commands::project::project::*;
 use crate::commands::log::*;
-use time::{UtcOffset};
+use time::{OffsetDateTime, UtcOffset};
 use time::macros::format_description;
-use tracing_subscriber::fmt::format::FmtSpan;
+use tracing_subscriber::{fmt};
+use tracing_subscriber::fmt::{FormatEvent, FormatFields};
+use tracing_subscriber::registry::LookupSpan;
+
+struct LogFormatter;
+impl<S, N> FormatEvent<S, N> for LogFormatter
+where
+    S: Subscriber + for<'a> LookupSpan<'a>,
+    N: for<'a> FormatFields<'a> + 'static,
+{
+    fn format_event(
+        &self,
+        ctx: &fmt::FmtContext<'_, S, N>,
+        mut writer: fmt::format::Writer<'_>,
+        event: &Event<'_>,
+    ) -> std::fmt::Result {
+
+        let meta = event.metadata();
+        let now = OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc().to_offset(UtcOffset::UTC));
+
+        let format = format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:6]");
+        let formatted_time = now.format(&format).unwrap_or_else(|_| "unknown-time".to_string());
+
+        write!(writer, "{} {:<5} ", formatted_time, meta.level())?;
+
+        let thread = std::thread::current();
+        let thread_id = thread.id();
+
+        match thread.name() {
+            Some(name) => write!(writer, "{} {:?} ", name, thread_id)?,
+            None => write!(writer, "{:?} ", thread_id)?
+        }
+
+        write!(writer, "{}: ", meta.target())?;
+
+        ctx.format_fields(writer.by_ref(), event)?;
+
+        writeln!(writer)
+    }
+}
 
 fn setup_logging() {
-    let fmt = format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:6]");
-    let offset = UtcOffset::current_local_offset().unwrap_or(UtcOffset::UTC);
-    let timer = OffsetTime::new(offset, fmt);
-
     let exe_path = std::env::current_exe().expect("Failed to get current exe path");
     let log_dir = exe_path.parent().unwrap().join("logs");
 
@@ -35,11 +69,10 @@ fn setup_logging() {
         .with_line_number(false)
         .with_thread_ids(true)
         .with_thread_names(true)
-        .with_target(false)
-        .with_timer(timer)
+        .with_target(true)
         .with_writer(writer)
         .with_ansi(false)
-        .with_span_events(FmtSpan::NONE);
+        .event_format(LogFormatter);
 
     builder.init();
 }
