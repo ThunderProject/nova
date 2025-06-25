@@ -108,6 +108,7 @@ pub fn run() {
             path_exists,
             write_file,
             open_project,
+            create_new_project,
             is_empty,
             log
         ])

@@ -1,6 +1,7 @@
 import toast from "react-hot-toast";
 import {invoke} from "@tauri-apps/api/core";
 import {logger} from "../lib/Logger.ts";
+import {ObjectUtils} from "../lib/Utils.ts";
 
 export const NovaCommand = {
     ReadFileToString: 'read_file_to_string',
@@ -13,6 +14,7 @@ export const NovaCommand = {
     PathExists: 'path_exists',
     WriteFile: 'write_file',
     OpenProject: 'open_project',
+    CreateNewProject: 'create_new_project',
     IsEmpty: 'is_empty',
     Log: 'log'
 } as const;
@@ -28,6 +30,7 @@ type NovaCommandMap = {
     [NovaCommand.PathExists]: { params: { path: string }; result: boolean };
     [NovaCommand.WriteFile]: { params: { path: string; contents: string }; result: boolean };
     [NovaCommand.OpenProject]: { params: { file: string; }; result: void };
+    [NovaCommand.CreateNewProject]: { params: { params: MappedProjectParams; }; result: void };
     [NovaCommand.IsEmpty]: { params: { path: string; }; result: boolean };
     [NovaCommand.Log]: { params: { level: string; msg: string }; result: void };
 };
@@ -38,6 +41,19 @@ export async function invokeNovaCommand<K extends keyof NovaCommandMap>(
 ): Promise<NovaCommandMap[K]['result']> {
     return invoke<NovaCommandMap[K]['result']>(command, params);
 }
+
+export interface ProjectParams {
+    projectName: string;
+    workingDirectory: string;
+    importedFiles: string[];
+}
+
+//rust backend uses snake_case for param names
+type MappedProjectParams = {
+    project_name: string;
+    working_directory: string;
+    imported_files: string[];
+};
 
 export class NovaApi {
     async dicom_open(path: string): Promise<void> {
@@ -51,6 +67,17 @@ export class NovaApi {
         }
         catch (error) {
             const errMsg: string = `Failed to open project "${file}". Reason: ${error}`;
+            logger.error(errMsg);
+        }
+    }
+
+    static async createNewProject(params: ProjectParams): Promise<void> {
+        try {
+            const rustParams: MappedProjectParams = ObjectUtils.snakifyObject(params) as MappedProjectParams;
+            return await invokeNovaCommand(NovaCommand.CreateNewProject, {params: rustParams});
+        }
+        catch (error) {
+            const errMsg: string = `Failed to create new project. Reason: ${error}`;
             logger.error(errMsg);
         }
     }
