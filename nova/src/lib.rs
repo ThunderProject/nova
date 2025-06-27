@@ -3,6 +3,7 @@ pub mod core;
 mod project;
 pub mod application;
 pub mod fs;
+mod compression;
 
 pub use dicom::bridge::dicom_bridge::dicom_api::init;
 
