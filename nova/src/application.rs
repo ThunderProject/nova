@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 use tracing::Level;
-use crate::core::folder_resolver::FolderResolver;
+use crate::fs::folder_resolver::FolderResolver;
 
 pub struct Settings {
     assets_directory: PathBuf,
