@@ -16,6 +16,7 @@ import { open } from '@tauri-apps/plugin-dialog'
 import {FileSystem} from "../../lib/FileSystem.ts";
 import styles from './CreateProjectButton.module.css';
 import {Project} from "../../project/project.ts";
+import {modals} from "@mantine/modals";
 
 interface OpenProjectButtonProps {
     iconSize?: number;
@@ -172,11 +173,36 @@ export function CreateProjectButton({
             }
         }
 
+        if(folderNotEmpty) {
+            modals.openConfirmModal({
+                title: 'Folder Not Empty',
+                centered: true,
+                children: (
+                    <Text size="sm">
+                        The selected folder is not empty. Some files may be overwritten or deleted.
+                        Are you sure you want to continue?
+                    </Text>
+                ),
+                labels: { confirm: 'Yes, continue', cancel: 'Cancel' },
+                confirmProps: { color: 'blue' },
+                onConfirm: async () => {
+                    await createProject();
+                },
+            })
+        }
+        else {
+            await createProject();
+        }
+    };
+
+    const createProject = async () => {
         setIsCreating(true);
+
         //for now simulate a delay
         await new Promise((r) => setTimeout(r, 2000));
 
         logger.debug(`Creating project at: ${fullProjectPath}`);
+
         await Project.createNewProject({
             projectName: projectName,
             workingDirectory: baseFolder,
@@ -186,7 +212,7 @@ export function CreateProjectButton({
         setIsCreating(false);
         setModalOpen(false);
         onClosed();
-    };
+    }
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
