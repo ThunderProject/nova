@@ -10,14 +10,15 @@ pub mod project {
         debug!("Working directory: {}", params.working_directory);
         debug!("Imported files: {:?}", params.imported_files);
 
-        if let Ok(project) = Project::new_project(params) {
+        let result = Project::new_project(params).await;
+        if let Ok(project) = result {
             let arc = Arc::new(project);
             ioc::singleton::ioc().register(move || Arc::clone(&arc));
             info!("Project successfully created");
             Ok(())
         }
         else { 
-            Err("Project creation failed".into())
+            Err(format!("Project creation failed: {:?}", result.err()).into())
         }
     }
 

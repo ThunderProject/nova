@@ -1,270 +1,231 @@
-pub mod file_system {
-    use futures::stream::{FuturesUnordered, StreamExt};
-    use rayon::iter::{IntoParallelIterator, ParallelIterator};
-    use std::path::{Path, PathBuf};
+use futures::stream::{FuturesUnordered, StreamExt};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use std::path::{Path, PathBuf};
 
-    pub struct FileSystem;
-    
-    impl FileSystem {
+pub struct FileSystem;
 
-        pub async fn read_async(path: impl AsRef<Path>) -> Result<String, String> {
-            match tokio::fs::read_to_string(path).await {
-                Ok(content) => Ok(content),
-                Err(_) => Err("Failed to read file".into()),
-            }
+impl FileSystem {
+    pub async fn read_async(path: impl AsRef<Path>) -> Result<String, String> {
+        match tokio::fs::read_to_string(path).await {
+            Ok(content) => Ok(content),
+            Err(_) => Err("Failed to read file".into()),
+        }
+    }
+
+    pub fn read(path: impl AsRef<Path>) -> Result<String, String> {
+        match std::fs::read_to_string(path) {
+            Ok(content) => Ok(content),
+            Err(_) => Err("Failed to read file".into()),
+        }
+    }
+
+    pub async fn create_dir_async(path: impl AsRef<Path>) -> bool {
+        tokio::fs::create_dir(path).await.is_ok()
+    }
+
+    pub fn join(parts: Vec<String>) -> String {
+        let joined: PathBuf = parts.into_iter().collect();
+        joined.to_string_lossy().to_string()
+    }
+
+    pub fn create_dir(path: impl AsRef<Path>) -> bool {
+        std::fs::create_dir(path).is_ok()
+    }
+
+    pub async fn create_dir_recursive_async(path: impl AsRef<Path>) -> bool {
+        tokio::fs::create_dir_all(path).await.is_ok()
+    }
+
+    pub fn create_dir_recursive(path: impl AsRef<Path>) -> bool {
+        std::fs::create_dir_all(path).is_ok()
+    }
+
+    pub async fn remove_dir_async(path: impl AsRef<Path>) -> bool {
+        tokio::fs::remove_dir(path).await.is_ok()
+    }
+
+    pub fn remove_dir(path: impl AsRef<Path>) -> bool {
+        std::fs::remove_dir(path).is_ok()
+    }
+
+    pub async fn remove_dir_recursive_async(path: impl AsRef<Path>) -> bool {
+        tokio::fs::remove_dir_all(path).await.is_ok()
+    }
+
+    pub fn remove_dir_recursive(path: impl AsRef<Path>) -> bool {
+        std::fs::remove_dir_all(path).is_ok()
+    }
+
+    pub async fn remove_file_async(path: impl AsRef<Path>) -> bool {
+        tokio::fs::remove_file(path).await.is_ok()
+    }
+
+    pub fn remove_file(path: impl AsRef<Path>) -> bool {
+        std::fs::remove_file(path).is_ok()
+    }
+
+    pub async fn rename_async(from: impl AsRef<Path>, to: impl AsRef<Path>) -> bool {
+        tokio::fs::rename(from, to).await.is_ok()
+    }
+
+    pub fn rename(from: impl AsRef<Path>, to: impl AsRef<Path>) -> bool {
+        std::fs::rename(from, to).is_ok()
+    }
+
+    pub async fn exists_async(path: impl AsRef<Path>) -> bool {
+        tokio::fs::try_exists(path).await.unwrap_or(false)
+    }
+
+    pub fn exists(path: impl AsRef<Path>) -> bool {
+        std::fs::exists(path).unwrap_or(false)
+    }
+
+    pub async fn write_async(path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> bool {
+        tokio::fs::write(path, contents).await.is_ok()
+    }
+
+    pub fn write(path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> bool {
+        std::fs::write(path, contents).is_ok()
+    }
+
+    pub async fn is_empty_async(path: impl AsRef<Path>) -> bool {
+        let path = path.as_ref();
+
+        if !path.is_dir() {
+            return false;
         }
 
-        pub fn read(path: impl AsRef<Path>) -> Result<String, String> {
-            match std::fs::read_to_string(path) {
-                Ok(content) => Ok(content),
-                Err(_) => Err("Failed to read file".into()),
-            }
+        match tokio::fs::read_dir(path).await {
+            Ok(mut entries) => entries.next_entry().await.transpose().is_none(),
+            Err(_) => false,
+        }
+    }
+
+
+    pub fn is_empty(path: impl AsRef<Path>) -> bool {
+        let path = path.as_ref();
+
+        if !path.is_dir() {
+            return false;
         }
 
-        pub async fn create_dir_async(path: impl AsRef<Path>) -> bool {
-            match tokio::fs::create_dir(path).await {
-                Ok(_) => true,
-                Err(_) => false,
-            }
+        match std::fs::read_dir(path) {
+            Ok(mut entries) => entries.next().is_none(),
+            Err(_) => false,
         }
+    }
 
-        pub fn create_dir(path: impl AsRef<Path>) -> bool {
-            match std::fs::create_dir(path) {
-                Ok(_) => true,
-                Err(_) => false,
-            }
-        }
+    pub async fn clear_dir_async<P: AsRef<Path>>(path: P) -> std::io::Result<()> {
+        let mut dir = tokio::fs::read_dir(path).await?;
 
-        pub async fn create_dir_recursive_async(path: impl AsRef<Path>) -> bool {
-            match tokio::fs::create_dir_all(path).await {
-                Ok(_) => true,
-                Err(_) => false,
-            }
-        }
-
-        pub fn create_dir_recursive(path: impl AsRef<Path>) -> bool {
-            match std::fs::create_dir_all(path) {
-                Ok(_) => true,
-                Err(_) => false,
-            }
-        }
-
-        pub async fn remove_dir_async(path: impl AsRef<Path>) -> bool {
-            match tokio::fs::remove_dir(path).await {
-                Ok(_) => true,
-                Err(_) => false,
-            }
-        }
-
-        pub fn remove_dir(path: impl AsRef<Path>) -> bool {
-            match std::fs::remove_dir(path) {
-                Ok(_) => true,
-                Err(_) => false,
-            }
-        }
-
-        pub async fn remove_dir_recursive_async(path: impl AsRef<Path>) -> bool {
-            match tokio::fs::remove_dir_all(path).await {
-                Ok(_) => true,
-                Err(_) => false,
-            }
-        }
-
-        pub fn remove_dir_recursive(path: impl AsRef<Path>) -> bool {
-            match std::fs::remove_dir_all(path) {
-                Ok(_) => true,
-                Err(_) => false,
-            }
-        }
-
-        pub async fn remove_file_async(path: impl AsRef<Path>) -> bool {
-            match tokio::fs::remove_file(path).await {
-                Ok(_) => true,
-                Err(_) => false,
-            }
-        }
-
-        pub fn remove_file(path: impl AsRef<Path>) -> bool {
-            match std::fs::remove_file(path) {
-                Ok(_) => true,
-                Err(_) => false,
-            }
-        }
-
-        pub async fn rename_async(from: impl AsRef<Path>, to: impl AsRef<Path>) -> bool {
-            match tokio::fs::rename(from, to).await {
-                Ok(_) => true,
-                Err(_) => false,
-            }
-        }
-
-        pub fn rename(from: impl AsRef<Path>, to: impl AsRef<Path>) -> bool {
-            match std::fs::rename(from, to) {
-                Ok(_) => true,
-                Err(_) => false,
-            }
-        }
-
-        pub async fn exists_async(path: impl AsRef<Path>) -> bool {
-            tokio::fs::try_exists(path).await.unwrap_or_else(|_| false)
-        }
-
-        pub fn exists(path: impl AsRef<Path>) -> bool {
-            std::fs::exists(path).unwrap_or_else(|_| false)
-        }
-
-        pub async fn write_async(path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> bool {
-            match tokio::fs::write(path, contents).await {
-                Ok(_) => true,
-                Err(_) => false,
-            }
-        }
-
-        pub fn write(path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> bool {
-            match std::fs::write(path, contents) {
-                Ok(_) => true,
-                Err(_) => false,
-            }
-        }
-
-        pub async fn is_empty_async(path: impl AsRef<Path>) -> bool {
-            let path = path.as_ref();
-
-            if !path.is_dir() {
-                return false;
-            }
-
-            match tokio::fs::read_dir(path).await {
-                Ok(mut entries) => entries.next_entry().await.transpose().is_none(),
-                Err(_) => false,
-            }
-        }
-
-        pub fn is_empty(path: impl AsRef<Path>) -> bool {
-            let path = path.as_ref();
-
-            if !path.is_dir() {
-                return false;
-            }
-
-            match std::fs::read_dir(path) {
-                Ok(mut entries) => entries.next().is_none(),
-                Err(_) => false,
-            }
-        }
-
-        pub async fn clear_dir_async<P: AsRef<Path>>(path: P) -> std::io::Result<()> {
-            let mut dir = tokio::fs::read_dir(path).await?;
-
-            while let Some(entry) = dir.next_entry().await? {
-                let path = entry.path();
-                let metadata = tokio::fs::metadata(&path).await?;
-
-                match metadata.is_dir() {
-                    true => tokio::fs::remove_dir_all(&path).await?,
-                    false => tokio::fs::remove_file(&path).await?,
-                }
-            }
-            Ok(())
-        }
-
-        pub fn clear_dir<P: AsRef<Path>>(path: P) -> std::io::Result<()> {
-            for entry in std::fs::read_dir(path)? {
-                let entry = entry?;
-                let path = entry.path();
-
-                match path.is_dir() {
-                    true => std::fs::remove_dir_all(&path)?,
-                    false => std::fs::remove_file(&path)?,
-                }
-            }
-            Ok(())
-        }
-
-        pub fn clear_dir_par<P: AsRef<Path>>(path: P) -> std::io::Result<()> {
-            let entries = std::fs::read_dir(path)?
-                .collect::<Result<Vec<_>, _>>()?;
-
-            entries
-                .into_par_iter()
-                .map(|entry| FileSystem::remove_entry_recursive(entry.path()))
-                .collect::<Result<(), _>>()
-        }
-
-        fn remove_entry_recursive(path: PathBuf) -> std::io::Result<()> {
-            match path.is_dir() {
-                true => {
-                    let entries = match std::fs::read_dir(&path) {
-                        Ok(entries) => entries.collect::<Result<Vec<_>, _>>()?,
-                        Err(e) => return Err(e),
-                    };
-
-                    entries.into_par_iter()
-                        .map(|entry| FileSystem::remove_entry_recursive(entry.path()))
-                        .collect::<Result<(), _>>()?;
-
-                    std::fs::remove_dir(path)
-                }
-                _ => std::fs::remove_file(&path),
-            }
-        }
-
-        pub async fn clear_dir_par_async<P: AsRef<Path>>(path: P) -> std::io::Result<()> {
-            let mut dir = tokio::fs::read_dir(path).await?;
-            let mut tasks = FuturesUnordered::new();
-
-            while let Some(entry) = dir.next_entry().await? {
-                let path = entry.path();
-                tasks.push(Self::remove_entry_recursive_async(path));
-            }
-
-            while let Some(result) = tasks.next().await {
-                result?;
-            }
-            Ok(())
-
-        }
-
-        async fn remove_entry_recursive_async(path: PathBuf) -> std::io::Result<()> {
-            let metadata = match tokio::fs::metadata(&path).await {
-                Ok(meta) => meta,
-                Err(e) => return Err(e),
-            };
+        while let Some(entry) = dir.next_entry().await? {
+            let path = entry.path();
+            let metadata = tokio::fs::metadata(&path).await?;
 
             match metadata.is_dir() {
-                true => {
-                    let mut dir = match tokio::fs::read_dir(&path).await {
-                        Ok(d) => d,
-                        Err(e) => return Err(e),
-                    };
-
-                    let mut tasks = FuturesUnordered::new();
-                    while let Some(entry) = dir.next_entry().await? {
-                        tasks.push(Self::remove_entry_recursive_async(entry.path()));
-                    }
-
-                    while let Some(result) = tasks.next().await {
-                        result?;
-                    }
-
-                    tokio::fs::remove_dir(&path).await
-                },
-                _ => tokio::fs::remove_file(&path).await
+                true => tokio::fs::remove_dir_all(&path).await?,
+                false => tokio::fs::remove_file(&path).await?,
             }
+        }
+        Ok(())
+    }
+
+    pub fn clear_dir<P: AsRef<Path>>(path: P) -> std::io::Result<()> {
+        for entry in std::fs::read_dir(path)? {
+            let entry = entry?;
+            let path = entry.path();
+
+            match path.is_dir() {
+                true => std::fs::remove_dir_all(&path)?,
+                false => std::fs::remove_file(&path)?,
+            }
+        }
+        Ok(())
+    }
+
+    pub fn clear_dir_par<P: AsRef<Path>>(path: P) -> std::io::Result<()> {
+        let entries = std::fs::read_dir(path)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        entries
+            .into_par_iter()
+            .map(|entry| FileSystem::remove_entry_recursive(entry.path()))
+            .collect::<Result<(), _>>()
+    }
+
+    fn remove_entry_recursive(path: PathBuf) -> std::io::Result<()> {
+        match path.is_dir() {
+            true => {
+                let entries = match std::fs::read_dir(&path) {
+                    Ok(entries) => entries.collect::<Result<Vec<_>, _>>()?,
+                    Err(e) => return Err(e),
+                };
+
+                entries.into_par_iter()
+                    .map(|entry| FileSystem::remove_entry_recursive(entry.path()))
+                    .collect::<Result<(), _>>()?;
+
+                std::fs::remove_dir(path)
+            }
+            _ => std::fs::remove_file(&path),
+        }
+    }
+
+    pub async fn clear_dir_par_async<P: AsRef<Path>>(path: P) -> std::io::Result<()> {
+        let mut dir = tokio::fs::read_dir(path).await?;
+        let mut tasks = FuturesUnordered::new();
+
+        while let Some(entry) = dir.next_entry().await? {
+            let path = entry.path();
+            tasks.push(Self::remove_entry_recursive_async(path));
+        }
+
+        while let Some(result) = tasks.next().await {
+            result?;
+        }
+        Ok(())
+
+    }
+
+    async fn remove_entry_recursive_async(path: PathBuf) -> std::io::Result<()> {
+        let metadata = match tokio::fs::metadata(&path).await {
+            Ok(meta) => meta,
+            Err(e) => return Err(e),
+        };
+
+        match metadata.is_dir() {
+            true => {
+                let mut dir = match tokio::fs::read_dir(&path).await {
+                    Ok(d) => d,
+                    Err(e) => return Err(e),
+                };
+
+                let mut tasks = FuturesUnordered::new();
+                while let Some(entry) = dir.next_entry().await? {
+                    tasks.push(Self::remove_entry_recursive_async(entry.path()));
+                }
+
+                while let Some(result) = tasks.next().await {
+                    result?;
+                }
+
+                tokio::fs::remove_dir(&path).await
+            },
+            _ => tokio::fs::remove_file(&path).await
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-     use crate::fs::file_system::file_system::FileSystem;
+    use crate::fs::file_system::FileSystem;
     use tempfile::tempdir;
 
     #[tokio::test]
     async fn test_create_and_remove_dir_async() {
         let tmp = tempdir().unwrap();
         let dir_path = tmp.path().join("dir");
-        
+
         assert!(FileSystem::create_dir_async(&dir_path).await);
         assert!(dir_path.exists());
 
@@ -283,7 +244,7 @@ mod tests {
         assert!(FileSystem::remove_dir(&dir_path));
         assert!(!dir_path.exists());
     }
-    
+
     #[tokio::test]
     async fn test_create_and_remove_dir_recursive_async() {
         let tmp = tempdir().unwrap();
@@ -399,7 +360,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_clear_dir_async() {
+    async fn est_clear_dir_async() {
         let tmp = tempdir().unwrap();
         let dir = tmp.path();
 
@@ -452,5 +413,39 @@ mod tests {
 
         FileSystem::clear_dir_par_async(dir).await.unwrap();
         assert!(FileSystem::is_empty_async(dir).await);
+    }
+
+    #[test]
+    fn test_join_multiple() {
+        let parts = vec![
+            "foo".to_string(),
+            "bar".to_string(),
+            "baz".to_string(),
+        ];
+        let joined = FileSystem::join(parts);
+
+        #[cfg(target_os = "windows")]
+        assert_eq!(joined, "foo\\bar\\baz");
+    }
+
+    #[test]
+    fn test_join_empty() {
+        let parts: Vec<String> = vec![];
+        let joined = FileSystem::join(parts);
+        assert_eq!(joined, "");
+    }
+
+    #[test]
+    fn test_join_with_absolute_path() {
+        let parts = vec![
+            #[cfg(target_os = "windows")]
+            "C:\\tmp".to_string(),
+            "folder".to_string(),
+            "file.txt".to_string(),
+        ];
+        let joined = FileSystem::join(parts);
+
+        #[cfg(target_os = "windows")]
+        assert_eq!(joined, "C:\\tmp\\folder\\file.txt");
     }
 }
