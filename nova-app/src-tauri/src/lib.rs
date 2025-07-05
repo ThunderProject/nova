@@ -110,6 +110,7 @@ pub fn run() {
             open_project,
             create_new_project,
             is_empty,
+            join,
             log
         ])
         .run(tauri::generate_context!())

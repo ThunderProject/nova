@@ -1,9 +1,14 @@
 pub mod file_system {
-    use nova::fs::file_system::file_system::FileSystem;
+    use nova::fs::file_system::FileSystem;
 
     #[tauri::command]
     pub async fn read_file_to_string(file: String) -> Result<String, String> {
         FileSystem::read_async(file).await
+    }
+
+    #[tauri::command]
+    pub fn join(parts: Vec<String>) -> String {
+        FileSystem::join(parts)
     }
 
     #[tauri::command]

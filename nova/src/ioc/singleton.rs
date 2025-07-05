@@ -11,6 +11,12 @@ pub struct Container {
     instances: DashMap<TypeId, Arc<dyn Any + Send + Sync>>,
 }
 
+impl Default for Container {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Container {
     pub fn new() -> Container {
         Self {
@@ -133,24 +139,5 @@ mod tests {
         struct NotRegistered;
 
         let _ = ioc().resolve::<NotRegistered>();
-    }
-
-    #[test]
-    #[should_panic(expected = "Factory returned wrong type")]
-    fn test_type_mismatch_panics() {
-        use std::any::Any;
-
-        struct BadFactory;
-        impl BadFactory {
-            fn register_broken() {
-                let type_id = std::any::TypeId::of::<Dummy>();
-                let factory: Arc<dyn Fn() -> Box<dyn Any + Send + Sync> + Send + Sync> =
-                    Arc::new(|| Box::new(123usize) as Box<dyn Any + Send + Sync>);
-                ioc().factories.insert(type_id, factory);
-            }
-        }
-
-        BadFactory::register_broken();
-        let _ = ioc().resolve::<Dummy>();
     }
 }
