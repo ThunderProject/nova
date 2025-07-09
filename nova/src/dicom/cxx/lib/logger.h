@@ -4,28 +4,29 @@
 #include "quill/LogMacros.h"
 #include "quill/Logger.h"
 #include "quill/sinks/ConsoleSink.h"
-#include <string_view>
 #include <libassert/assert.hpp>
 
 namespace nova {
+    class ipc_sink final : public quill::Sink {
+    public:
+        ipc_sink() = default;
+
+        void write_log(quill::MacroMetadata const*, uint64_t,
+                 std::string_view, std::string_view,
+                 std::string const&, std::string_view,
+                 quill::LogLevel lvl, std::string_view,
+                 std::string_view,
+                 std::vector<std::pair<std::string, std::string>> const*,
+                 std::string_view msg, std::string_view log_statement) override;
+
+        void flush_sink() noexcept override;
+        void run_periodic_tasks() noexcept override;
+    };
+
     class logger {
     public:
-        static void init() {
-            const quill::BackendOptions backendOptions {
-                .thread_name = "nova cxx logger",
-                .enable_yield_when_idle = true,
-                .sleep_duration = std::chrono::milliseconds(0),
-            };
-
-            quill::Backend::start(backendOptions);
-            auto console_sink = quill::Frontend::create_or_get_sink<quill::ConsoleSink>("console");
-            m_logger = quill::Frontend::create_or_get_logger("nova_cxx", std::move(console_sink));
-            m_logger->set_log_level(quill::LogLevel::Debug);
-        }
-
-        static void shutdown() {
-            quill::Backend::stop();
-        }
+        static void init();
+        static void shutdown();
 
         template<typename... Args>
         constexpr static void debug(const char* fmt, Args&&... args) {
