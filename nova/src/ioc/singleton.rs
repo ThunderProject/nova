@@ -3,9 +3,14 @@ use std::sync::Arc;
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
 
-
+/// Type alias for a thread-safe factory function that produces a boxed `Any` value.
+/// - Each registered type gets a corresponding factory.
 type Factory = dyn Fn() -> Box<dyn Any + Send + Sync> + Send + Sync;
 
+/// A thread-safe inversion of control (IoC) container.
+/// - Supports singleton registration and resolution of services.
+/// - Uses `TypeId` to map Rust types to their instances/factories.
+/// - Fully Thread-safe via `DashMap` and `Arc`.
 pub struct Container {
     factories: DashMap<TypeId, Arc<Factory>>,
     instances: DashMap<TypeId, Arc<dyn Any + Send + Sync>>,
@@ -25,11 +30,22 @@ impl Container {
         }
     }
 
+    /// Registers a factory function for type `T` in the container.
+    ///
+    /// - `T` must be `'static + Send + Sync`.
+    /// - The factory will only be invoked the first time `T` is resolved (singleton semantics).
     pub fn register<T: 'static + Send + Sync>(&self, factory: impl Fn() -> T + Send + Sync + 'static) {
         let wrapper = move || -> Box<dyn Any + Send + Sync> { Box::new(factory()) };
         self.factories.insert(TypeId::of::<T>(), Arc::new(wrapper));
     }
 
+    /// Resolves an instance of type `T`.
+    ///
+    /// - Returns a shared `Arc<T>` singleton.
+    /// - If `T` was not previously resolved, the registered factory is invoked.
+    /// - Panics if:
+    ///     * `T` has not been registered (should not happen unless misused).
+    ///     * The factory returns an unexpected type (should not happen unless misused).
     pub fn resolve<T: 'static + Send + Sync>(&self) -> Arc<T> {
         let type_id = TypeId::of::<T>();
 
@@ -80,9 +96,7 @@ mod tests {
     }
 
     #[derive(Debug)]
-    struct DummyUnique {
-        id: usize,
-    }
+    struct DummyUnique {}
 
     #[derive(Debug)]
     struct ThreadSafeDummy {
@@ -99,7 +113,7 @@ mod tests {
 
     #[test]
     fn test_singleton_uniqueness() {
-        ioc().register(|| DummyUnique { id: 999 });
+        ioc().register(|| DummyUnique { });
 
         let a = ioc().resolve::<DummyUnique>();
         let b = ioc().resolve::<DummyUnique>();
