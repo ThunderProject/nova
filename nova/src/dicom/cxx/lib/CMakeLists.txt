@@ -4,4 +4,6 @@ target_sources(${CMAKE_PROJECT_NAME}
         json.h
         logger.h
         result.h
+        PRIVATE
+        logger.cpp
 )
