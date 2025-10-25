@@ -26,7 +26,7 @@ tauri-plugin-devtools = "2.0.0"
 tauri-plugin-fs = "2.3.0"
 nova = { path = "../../nova" }
 tokio = "1.45.1"
-tracing-subscriber = { version = "0.3.19", features = ["time"]}
+tracing-subscriber = { version = "0.3.20", features = ["time"]}
 anyhow = "1.0.98"
 tauri-plugin-dialog = "2"
 tracing = "0.1.41"
