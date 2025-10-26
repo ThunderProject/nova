@@ -92,7 +92,6 @@ describe("ViewportShell", () => {
         render(<ViewportShell id="vp1">child</ViewportShell>);
         const event = new Event("fullscreenchange");
         document.dispatchEvent(event);
-        // Just ensure no crash, state updated internally
         expect(screen.getByTestId("paper")).toBeInTheDocument();
     });
 
