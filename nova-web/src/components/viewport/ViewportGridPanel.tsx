@@ -42,7 +42,7 @@ const ViewportRow: React.FC<{
                     {
                         i > 0 && (<PanelResizeHandle className={classes.resizeHandleVertical} />)
                     }
-                    <Panel className={classes.panel}>
+                    <Panel defaultSize={100 / viewports.length} className={classes.panel}>
                         <ViewportItem viewport={viewportModel} onClose={removeViewport} />
                     </Panel>
                 </React.Fragment>
