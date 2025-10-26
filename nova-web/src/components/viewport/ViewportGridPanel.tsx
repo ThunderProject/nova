@@ -12,7 +12,6 @@ import classes from "./ViewportGridPanel.module.css";
 type Props = {
     viewports: ViewportModel[];
     removeViewport: (id: string) => void;
-    onResetLayout?: () => void;
 };
 
 const EmptyState: React.FC = () => (
@@ -32,89 +31,57 @@ const ViewportItem: React.FC<{
     </ViewportShell>
 );
 
-export const ViewportGridPanel: React.FC<Props> = ({
-                                                       removeViewport,
-                                                       viewports,
-                                                   }) => {
-    const numViewports = viewports.length;
+const ViewportRow: React.FC<{
+    viewports: ViewportModel[];
+    removeViewport: (id: string) => void;
+}> = ({ removeViewport, viewports }) => (
+    <PanelGroup direction="horizontal" className={classes.panelGroup}>
+        {
+            viewports.map((viewportModel, i) => (
+                <React.Fragment key={viewportModel.id}>
+                    {
+                        i > 0 && (<PanelResizeHandle className={classes.resizeHandleVertical} />)
+                    }
+                    <Panel className={classes.panel}>
+                        <ViewportItem viewport={viewportModel} onClose={removeViewport} />
+                    </Panel>
+                </React.Fragment>
+            ))
+        }
+    </PanelGroup>
+);
 
+export const ViewportGridPanel: React.FC<Props> = ({
+    removeViewport,
+    viewports,
+}) => {
+    const numViewports = viewports.length;
     if (numViewports === 0) {
         return <EmptyState />;
     }
-
-    if (numViewports === 1) {
-        return <ViewportItem viewport={viewports[0]} onClose={removeViewport} />;
+    
+    const columnsPerRow = 2;
+    const rows = Array.from(
+        { length: Math.ceil(numViewports / columnsPerRow) },
+        (_, i) => viewports.slice(i * columnsPerRow, i * columnsPerRow + columnsPerRow)
+    );
+    
+    if (rows.length === 1) {
+        return <ViewportRow viewports={rows[0]} removeViewport={removeViewport} />;
     }
-
-    if (numViewports === 2) {
-        return (
-            <PanelGroup direction="horizontal" className={classes.panelGroup}>
-                {viewports.map((vp, i) => (
-                    <React.Fragment key={vp.id}>
-                        {i > 0 && (
-                            <PanelResizeHandle className={classes.resizeHandleVertical} />
-                        )}
-                        <Panel className={classes.panel}>
-                            <ViewportItem viewport={vp} onClose={removeViewport} />
-                        </Panel>
-                    </React.Fragment>
-                ))}
-            </PanelGroup>
-        );
-    }
-
-    if (numViewports === 3) {
-        const topRow = viewports.slice(0, 2);
-        const bottom = viewports[2];
-
-        return (
-            <PanelGroup direction="vertical" className={classes.panelGroup}>
-                <Panel defaultSize={50} className={classes.panel}>
-                    <PanelGroup direction="horizontal" className={classes.panelGroup}>
-                        {topRow.map((vp, i) => (
-                            <React.Fragment key={vp.id}>
-                                {i > 0 && (
-                                    <PanelResizeHandle className={classes.resizeHandleVertical} />
-                                )}
-                                <Panel>
-                                    <ViewportItem viewport={vp} onClose={removeViewport} />
-                                </Panel>
-                            </React.Fragment>
-                        ))}
-                    </PanelGroup>
-                </Panel>
-
-                <PanelResizeHandle className={classes.resizeHandleHorizontal} />
-                <Panel className={classes.panel}>
-                    <ViewportItem viewport={bottom} onClose={removeViewport} />
-                </Panel>
-            </PanelGroup>
-        );
-    }
-
-    const topRow = viewports.slice(0, 2);
-    const bottomRow = viewports.slice(2, 4);
-
-    const renderRow = (row: ViewportModel[]) => (
-        <PanelGroup direction="horizontal" className={classes.panelGroup}>
-            {row.map((vp, i) => (
-                <React.Fragment key={vp.id}>
-                    {i > 0 && (
-                        <PanelResizeHandle className={classes.resizeHandleVertical} />
-                    )}
-                    <Panel className={classes.panel}>
-                        <ViewportItem viewport={vp} onClose={removeViewport} />
+    
+    return (
+        <PanelGroup direction="vertical" className={classes.panelGroup}>
+            {rows.map((row, rowIndex) => (
+                <React.Fragment key={rowIndex}>
+                    {
+                        rowIndex > 0 && (<PanelResizeHandle className={classes.resizeHandleHorizontal} />)
+                    }
+                    <Panel defaultSize={100 / rows.length} className={classes.panel}>
+                        <ViewportRow viewports={row} removeViewport={removeViewport} />
                     </Panel>
                 </React.Fragment>
             ))}
-        </PanelGroup>
-    );
-
-    return (
-        <PanelGroup direction="vertical" className={classes.panelGroup}>
-            <Panel defaultSize={50} className={classes.panel}>{renderRow(topRow)}</Panel>
-            <PanelResizeHandle className={classes.resizeHandleHorizontal} />
-            <Panel className={classes.panel}>{renderRow(bottomRow)}</Panel>
         </PanelGroup>
     );
 };
