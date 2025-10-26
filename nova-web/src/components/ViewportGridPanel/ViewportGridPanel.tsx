@@ -4,9 +4,9 @@ import {
     Panel,
     PanelResizeHandle,
 } from "react-resizable-panels";
-import { type ViewportModel } from "../../stores/viewerTypes";
-import ViewportShell from "./ViewportShell";
-import ViewportCanvas from "./ViewPortCanvas";
+import { type ViewportModel } from "../../stores/viewerTypes.ts";
+import ViewportShell from "../ViewportShell/ViewportShell.tsx";
+import ViewportCanvas from "../viewport/ViewPortCanvas.tsx";
 import classes from "./ViewportGridPanel.module.css";
 
 type Props = {

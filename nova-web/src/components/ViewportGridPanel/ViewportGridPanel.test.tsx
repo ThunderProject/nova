@@ -1,8 +1,8 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { vi } from "vitest";
-import type { ViewportModel } from "../../stores/viewerTypes";
-import { ViewportGridPanel } from "./ViewportGridPanel";
+import type { ViewportModel } from "../../stores/viewerTypes.ts";
+import { ViewportGridPanel } from "./ViewportGridPanel.tsx";
 import "@testing-library/jest-dom";
 
 vi.mock("./ViewportShell", () => ({
