@@ -7,7 +7,7 @@ import {
     Text, Tooltip,
 } from "@mantine/core";
 import {IconArrowsDiagonal, IconArrowsDiagonalMinimize} from "@tabler/icons-react";
-import { useViewerStore } from "../../stores/viewerTypes";
+import { useViewerStore } from "../../stores/viewerTypes.ts";
 import {logger} from "../../lib/Logger.ts";
 import classes from "./ViewportShell.module.css";
 
@@ -134,7 +134,6 @@ export default function ViewportShell({
     return (
         <Paper
             ref={containerRef}
-            withBorder
             radius="sm"
             className={`${classes.viewport} ${isSelected ? classes.selected : ""}`}
         >
