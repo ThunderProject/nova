@@ -7,17 +7,11 @@ vi.mock("@mantine/core", async () => {
     const actual = await vi.importActual<typeof import("@mantine/core")>("@mantine/core");
 
     type MockProps = React.PropsWithChildren<React.HTMLAttributes<HTMLDivElement>>;
-
-    const MockDiv = ({ children, ...props }: MockProps) => (
-        <div {...props}>{children}</div>
-    );
+    const MockDiv = ({ children, ...props }: MockProps) => <div {...props}>{children}</div>;
 
     return {
         ...actual,
-        ActionIcon: ({
-                         children,
-                         onClick,
-                     }: React.PropsWithChildren<{ onClick?: () => void }>) => (
+        ActionIcon: ({ children, onClick }: React.PropsWithChildren<{ onClick?: () => void }>) => (
             <button data-testid="fullscreen-btn" onClick={onClick}>
                 {children}
             </button>
@@ -36,6 +30,17 @@ vi.mock("@tabler/icons-react", () => ({
     IconArrowsDiagonal: () => <div data-testid="enter-icon" />,
     IconArrowsDiagonalMinimize: () => <div data-testid="exit-icon" />,
 }));
+
+const toggleMock = vi.fn();
+
+vi.mock("@mantine/hooks", () => ({
+    useFullscreen: () => ({
+        fullscreen: false,
+        ref: { current: document.createElement("div") },
+        toggle: toggleMock,
+    }),
+}));
+
 
 const mockSetSelectedViewportId = vi.fn();
 vi.mock("../../stores/viewerTypes.ts", () => ({
@@ -57,12 +62,6 @@ describe("ViewportShell", () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
-        Object.defineProperty(document, "fullscreenElement", {
-            value: null,
-            writable: true,
-        });
-        document.exitFullscreen = vi.fn().mockResolvedValue(undefined);
-        HTMLElement.prototype.requestFullscreen = vi.fn().mockResolvedValue(undefined);
     });
 
     it("renders with title and children", () => {
@@ -82,17 +81,10 @@ describe("ViewportShell", () => {
         expect(onClose).toHaveBeenCalledWith("vp1");
     });
 
-    it("requests fullscreen when fullscreen icon clicked", async () => {
+    it("toggles fullscreen when fullscreen icon clicked", () => {
         render(<ViewportShell id="vp1">child</ViewportShell>);
         fireEvent.click(screen.getByTestId("fullscreen-btn"));
-        expect(HTMLElement.prototype.requestFullscreen).toHaveBeenCalled();
-    });
-
-    it("updates state on fullscreenchange", () => {
-        render(<ViewportShell id="vp1">child</ViewportShell>);
-        const event = new Event("fullscreenchange");
-        document.dispatchEvent(event);
-        expect(screen.getByTestId("paper")).toBeInTheDocument();
+        expect(toggleMock).toHaveBeenCalled();
     });
 
     it("selects viewport when header clicked", () => {

@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from "react";
+import React from "react";
 import {
     ActionIcon,
     CloseButton,
@@ -6,9 +6,9 @@ import {
     Paper,
     Text, Tooltip,
 } from "@mantine/core";
+import { useFullscreen } from '@mantine/hooks';
 import {IconArrowsDiagonal, IconArrowsDiagonalMinimize} from "@tabler/icons-react";
 import { useViewerStore } from "../../stores/viewerTypes.ts";
-import {logger} from "../../lib/Logger.ts";
 import classes from "./ViewportShell.module.css";
 
 type ViewportShellProps = {
@@ -30,61 +30,14 @@ export default function ViewportShell({
 
     const { selectedViewportId, setSelectedViewportId } = useViewerStore();
     const isSelected = selectedViewportId === id;
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [isFullscreen, setIsFullscreen] = useState(false);
+    const { fullscreen, ref, toggle } = useFullscreen();
 
     function selectViewport(element: HTMLElement) {
         if (!element.closest("button")) {
             setSelectedViewportId(id);
         }
     }
-
-    const enterFullScreen = async (elem: HTMLDivElement) => {
-        try {
-            await elem.requestFullscreen();
-            logger.debug("Entered fullscreen mode");
-        } catch (err) {
-            logger.error(`Failed to enter fullscreen: ${err}`);
-        }
-    };
-
-    const exitFullScreen = async () => {
-        try {
-            await document.exitFullscreen();
-            logger.debug("Exited Fullscreen mode");
-        } catch (err) {
-            logger.error(`Failed to exit fullscreen: ${err}`);
-        }
-    };
-
-    const toggleFullscreen = async () => {
-        const elem = containerRef.current;
-        if (!elem)  {
-            return;
-        }
-
-        if (document.fullscreenElement) {
-            await exitFullScreen();
-        }
-        else {
-            await enterFullScreen(elem);
-        }
-    };
-
-    useEffect(() => {
-        const handleFullscreenChange = () => {
-            const elem = containerRef.current;
-            const active = document.fullscreenElement === elem;
-            setIsFullscreen(active);
-        };
-
-        document.addEventListener("fullscreenchange", handleFullscreenChange);
-
-        return () => {
-            document.removeEventListener("fullscreenchange", handleFullscreenChange);
-        };
-    }, []);
-
+    
     const Header = () => (
         <Group
             className={classes.header}
@@ -99,19 +52,16 @@ export default function ViewportShell({
 
             <Group gap={4}>
                 <Tooltip
-                    label= {isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                    label= {fullscreen ? "Exit fullscreen" : "Enter fullscreen"}
                     openDelay={300}
                 >
                     <ActionIcon
                         size="sm"
                         variant="subtle"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            void toggleFullscreen();
-                        }}
+                        onClick= {toggle}
                     >
                         {
-                            isFullscreen
+                            fullscreen
                                 ? (<IconArrowsDiagonalMinimize size={16} />)
                                 : (<IconArrowsDiagonal size={16} />)
                         }
@@ -133,7 +83,7 @@ export default function ViewportShell({
 
     return (
         <Paper
-            ref={containerRef}
+            ref={ref}
             radius="sm"
             className={`${classes.viewport} ${isSelected ? classes.selected : ""}`}
         >
