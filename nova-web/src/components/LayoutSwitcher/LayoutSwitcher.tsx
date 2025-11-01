@@ -24,9 +24,11 @@ export default function LayoutSwitcher<T extends string>({
                                                          }: LayoutSwitcherProps<T>) {
     const data = options.map(({ icon, label, value }) => ({
         label: (
-            <Group gap={6}>
+            <Group gap={4} align="center" justify="center" wrap="nowrap">
                 {icon}
-                <Text size="xs">{label}</Text>
+                <Text size="xs" style={{ lineHeight: 1 }}>
+                    {label}
+                </Text>
             </Group>
         ),
         value,
