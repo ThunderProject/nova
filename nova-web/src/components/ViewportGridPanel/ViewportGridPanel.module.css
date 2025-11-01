@@ -1,0 +1,61 @@
+.emptyState {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    color: var(--mantine-color-dimmed);
+    height: 100%;
+    width: 100%;
+}
+
+.panelGroup {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+    background-color: var(--mantine-color-dark-8);
+    /*margin-top: var(--mantine-spacing-xs);*/
+    display: flex;
+}
+
+.panelGroup > [data-panel],
+.panelGroup > div[data-panel] {
+    flex: 1;
+    min-height: 0 !important;
+    min-width: 0 !important;
+    overflow: hidden;
+    display: flex;
+}
+
+.panelGroup .panelGroup {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.panel {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.resizeHandleVertical {
+    cursor: col-resize;
+    width: 2px;
+    background-color: color-mix(in srgb, var(--mantine-color-dark-7), var(--mantine-color-gray-6) 20%);
+}
+
+.resizeHandleVertical:hover {
+    background-color: var(--mantine-color-dark-4);
+}
+
+.resizeHandleHorizontal {
+    cursor: row-resize;
+    height: 2px;
+    background-color: color-mix(in srgb, var(--mantine-color-dark-7), var(--mantine-color-gray-6) 20%);
+}
+
+.resizeHandleHorizontal:hover {
+    background-color: var(--mantine-color-dark-4);
+}
