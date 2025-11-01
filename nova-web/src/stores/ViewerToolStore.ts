@@ -30,29 +30,29 @@ interface ViewerToolsState {
 }
 
 export const useViewerToolsStore = create<ViewerToolsState>((set) => ({
-    activeTool: 'None',
-    setTool: (tool) => set({ activeTool: tool }),
-
-    windowSettings: { width: 400, level: 40 },
-    setWindowSettings: (settings) =>
-        set((state) => ({
-            windowSettings: { ...state.windowSettings, ...settings },
-        })),
-
-    userPresets: {},
-    setUserPresets: (data) => set({ userPresets: data }),
-
     activePreset: null,
-    setActivePreset: (name) => set({ activePreset: name }),
+    activeTool: 'None',
 
     addPreset: (preset) =>
         set((state) => ({
             userPresets: {
                 ...state.userPresets,
                 [preset.name]: {
-                    width: preset.width,
                     level: preset.level,
+                    width: preset.width,
                 },
             },
         })),
+    setActivePreset: (name) => set({ activePreset: name }),
+
+    setTool: (tool) => set({ activeTool: tool }),
+    setUserPresets: (data) => set({ userPresets: data }),
+
+    setWindowSettings: (settings) =>
+        set((state) => ({
+            windowSettings: { ...state.windowSettings, ...settings },
+        })),
+    userPresets: {},
+
+    windowSettings: { level: 40, width: 400 },
 }));
