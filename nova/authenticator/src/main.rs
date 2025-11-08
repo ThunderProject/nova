@@ -1,5 +1,6 @@
 mod net;
 mod services;
+mod crypto;
 
 use mimalloc::MiMalloc;
 use tracing::Level;
