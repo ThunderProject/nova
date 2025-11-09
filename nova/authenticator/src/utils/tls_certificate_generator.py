@@ -3,7 +3,7 @@ import base64
 import os
 import secrets
 import stat
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -45,8 +45,8 @@ def main():
 
     san = x509.SubjectAlternativeName(san_list)
 
-    not_before = datetime.now(UTC) - timedelta(minutes=5)
-    not_after = not_before + timedelta(days=VALIDITY_DAYS)
+    not_before = datetime.now(timezone.utc) - timedelta(minutes=5)
+    not_after  = not_before + timedelta(days=VALIDITY_DAYS)
 
     builder = (
         x509.CertificateBuilder()
@@ -93,6 +93,7 @@ def main():
     print("\nGenerated:")
     print(f"  {KEY_OUT}")
     print(f"  {CERT_OUT}")
+    print(f"  {PW_OUT}")
     print("\nVerification:")
     print(f"  openssl x509 -in {CERT_OUT} -noout -text | less")
 
