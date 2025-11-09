@@ -1,5 +1,5 @@
-use aead::array::typenum::Unsigned;
-use aead::{Aead, AeadCore, KeyInit, Nonce, Payload};
+use aead::{Aead, KeyInit, Nonce, Payload};
+use aead::generic_array::typenum::Unsigned;
 use base64::prelude::*;
 use rand::rngs::OsRng;
 use rand::{TryRngCore};
@@ -55,7 +55,10 @@ pub fn encrypt<Algo: CryptoAlgo>(plain: &[u8], key: &[u8], aad: &[u8]) -> Result
     let mut nonce_bytes = vec![0u8; Algo::NONCE_SIZE];
     OsRng.try_fill_bytes(&mut nonce_bytes).map_err(CryptoError::NonceGenerationFailed)?;
 
-    let nonce = Nonce::<Algo>::try_from(nonce_bytes.as_slice()).map_err(|_| CryptoError::InvalidNonce)?;
+    #[allow(deprecated)]
+    // TODO: replace with "let nonce = Nonce::<Algo>::try_from(nonce_bytes.as_slice()).map_err(|_| CryptoError::InvalidNonce)?;"
+    // when we aaead crate
+    let nonce = Nonce::<Algo>::from_slice(nonce_bytes.as_slice());
 
     let ciphertext = cipher
         .encrypt(&nonce, Payload { msg: plain, aad })
@@ -87,7 +90,13 @@ pub fn encrypt_str<Algo: CryptoAlgo>(plain: &str, passphrase: &str, aad: &str) -
 pub fn decrypt<Algo: CryptoAlgo>(key: &[u8], ciphertext: &[u8], nonce: &[u8], aad: &[u8]) -> Result<Vec<u8>, CryptoError> {
     let cipher = Algo::new_from_slice(key).map_err(|_| CryptoError::InvalidKeyLength)?;
 
-    let nonce = Nonce::<Algo>::try_from(nonce).map_err(|_| CryptoError::InvalidNonce)?;
+    #[allow(deprecated)]
+    // TODO: replace with "let nonce = Nonce::<Algo>::try_from(nonce_bytes.as_slice()).map_err(|_| CryptoError::InvalidNonce)?;"
+    // when we aaead crate
+    if nonce.len() != <Algo as aead::AeadCore>::NonceSize::to_usize() {
+        return Err(CryptoError::InvalidNonce);
+    }
+    let nonce = Nonce::<Algo>::from_slice(nonce);
 
     let plaintext = cipher
         .decrypt(&nonce, Payload { msg: ciphertext, aad })
