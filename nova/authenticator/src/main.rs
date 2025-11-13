@@ -2,20 +2,44 @@ mod net;
 mod services;
 mod crypto;
 
-use mimalloc::MiMalloc;
-use tracing::Level;
 use crate::net::webserver::webserver::WebServer;
+use clap::Parser;
+use mimalloc::MiMalloc;
+use rustls::crypto::CryptoProvider;
+use std::path::PathBuf;
+use tracing::Level;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
+#[derive(Parser, Debug)]
+#[command(author, version, about)]
+pub struct CliArgs {
+    #[arg(
+        long,
+        default_value_os_t = default_vault_config_path(),
+        value_name = "FILE",
+        help = "Path to the vault configuration file"
+    )]
+    pub vault_config_path: PathBuf,
+}
+
+fn default_vault_config_path() -> PathBuf  {
+    PathBuf::from("src/crypto/.vault_config.toml")
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    CryptoProvider::install_default(
+        rustls::crypto::aws_lc_rs::default_provider()
+    ).expect("installed aws-lc-rs");
+
+    let args = CliArgs::parse();
     tracing_subscriber::fmt()
         .with_max_level(Level::DEBUG)
         .init();
     
-    let app = WebServer::new().await?;
+    let app = WebServer::new(args.vault_config_path).await;
     app.run().await?;
     Ok(())
 }
