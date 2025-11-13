@@ -105,7 +105,7 @@ pub fn decrypt<Algo: CryptoAlgo>(key: &[u8], ciphertext: &[u8], nonce: &[u8], aa
     Ok(plaintext)
 }
 
-pub fn decrypt_str<Algo: CryptoAlgo>(base64_cipher: &str, passphrase: &str, aad: &str) -> Result<String, CryptoError> {
+pub fn decrypt_str<Algo: CryptoAlgo>(base64_cipher: &str, passphrase: &str, aad: &str, pepper: Option<&[u8]>) -> Result<String, CryptoError> {
     let decoded = BASE64_STANDARD.decode(base64_cipher).map_err(CryptoError::Base64DecodeFailed)?;
 
     if decoded.len() < Algo::NONCE_SIZE {
@@ -115,7 +115,7 @@ pub fn decrypt_str<Algo: CryptoAlgo>(base64_cipher: &str, passphrase: &str, aad:
     let (salt, rest) = decoded.split_at(SALT_LEN);
     let (nonce, ciphertext) = rest.split_at(Algo::NONCE_SIZE);
 
-    let key_derivation = KeyDerivation::new(None)?;
+    let key_derivation = KeyDerivation::new(pepper)?;
     let key = key_derivation.derive(passphrase, salt)?;
 
     let plaintext_bytes = decrypt::<Algo>(key.as_ref(), ciphertext, nonce, aad.as_bytes())?;
@@ -209,7 +209,7 @@ mod tests {
         let encrypted = encryption_result.unwrap();
         assert!(!encrypted.is_empty(), "encrypted string should not be empty");
 
-        let decryption_result = decrypt_str::<XChaCha20Poly1305>(&encrypted, key, aad);
+        let decryption_result = decrypt_str::<XChaCha20Poly1305>(&encrypted, key, aad, None);
         assert!(decryption_result.is_ok());
 
         let decrypted = decryption_result.unwrap();
@@ -228,7 +228,7 @@ mod tests {
         let encrypted = encryption_result.unwrap();
         assert!(!encrypted.is_empty(), "encrypted string should not be empty");
 
-        let decryption_result = decrypt_str::<ChaCha20Poly1305>(&encrypted, key, aad);
+        let decryption_result = decrypt_str::<ChaCha20Poly1305>(&encrypted, key, aad, None);
         assert!(decryption_result.is_ok());
 
         let decrypted = decryption_result.unwrap();
@@ -247,7 +247,7 @@ mod tests {
         let encrypted = encryption_result.unwrap();
         assert!(!encrypted.is_empty(), "encrypted string should not be empty");
 
-        let decryption_result = decrypt_str::<Aes256Gcm>(&encrypted, key, aad);
+        let decryption_result = decrypt_str::<Aes256Gcm>(&encrypted, key, aad, None);
         assert!(decryption_result.is_ok());
 
         let decrypted = decryption_result.unwrap();
@@ -271,7 +271,7 @@ mod tests {
         let plain = "@@@ invalid base64 ###";
         let aad = "test";
 
-        let result = decrypt_str::<ChaCha20Poly1305>(plain, key, aad);
+        let result = decrypt_str::<ChaCha20Poly1305>(plain, key, aad, None);
 
         assert!(result.is_err());
     }

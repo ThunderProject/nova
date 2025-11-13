@@ -27,20 +27,20 @@ const DEFAULT_MEMORY_COST: u32 = 64 * 1024;
 const DEFAULT_TIME_COST: u32 = 3;
 
 #[derive(Clone)]
-pub struct KeyDerivation {
+pub struct KeyDerivation<'a> {
     params: Params,
-    pepper: Option<Zeroizing<Vec<u8>>>,
+    pepper: Option<&'a [u8]>,
 }
 
-impl KeyDerivation {
-    pub fn new(pepper: Option<Vec<u8>>) -> Result<Self, KeyDerivationError> {
+impl<'a> KeyDerivation<'a> {
+    pub fn new(pepper: Option<&'a [u8]>) -> Result<Self, KeyDerivationError> {
         let params = Params::new(DEFAULT_MEMORY_COST, DEFAULT_TIME_COST, KeyDerivation::default_parallelism(), Some(KEY_LENGTH))
             .map_err(|e| KeyDerivationError::InvalidParams(e.to_string()))?;
 
         Ok(
             Self {
                 params,
-                pepper: pepper.map(Zeroizing::new),
+                pepper,
             }
         )
     }
@@ -128,8 +128,9 @@ mod tests {
 
     #[test]
     fn derive_with_pepper_changes_output() {
+        let pepper = b"pepper123".to_vec();
         let without_pepper_result = KeyDerivation::new(None);
-        let with_pepper_result = KeyDerivation::new(Some(b"pepper123".to_vec()));
+        let with_pepper_result = KeyDerivation::new(Some(&pepper));
 
         assert!(without_pepper_result.is_ok());
         assert!(with_pepper_result.is_ok());

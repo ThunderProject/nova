@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use thiserror::Error;
+use zeroize::Zeroizing;
 
 #[derive(Debug, Error)]
 pub enum VaultError {
@@ -23,8 +24,8 @@ pub enum VaultError {
 }
 
 pub struct VaultSecrets {
-    pub password: String,
-    pub pepper: String,
+    pub password: Zeroizing<String>,
+    pub pepper: Zeroizing<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -55,7 +56,7 @@ pub struct Vault {
 }
 
 impl Vault {
-    pub fn new<Path: AsRef<std::path::Path>>(config_path: Path) -> Result<Self, VaultError> {
+    pub fn new<Path: AsRef<std::path::Path>>(config_path: &Path) -> Result<Self, VaultError> {
         let contents = std::fs::read_to_string(config_path)?;
         let this = toml::from_str::<Self>(&contents)?;
         Ok(this)
@@ -82,7 +83,10 @@ impl Vault {
             self.fetch_pepper(),
         )?;
 
-        Ok(VaultSecrets { password, pepper })
+        Ok(VaultSecrets {
+            password: Zeroizing::new(password),
+            pepper: Zeroizing::new(pepper),
+        })
     }
 
     async fn fetch_field(&self, field_name: &str) -> Result<String, VaultError> {
