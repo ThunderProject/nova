@@ -119,8 +119,7 @@ impl Vault {
 
         if !out.status.success() {
             return Err(VaultError::CommandFailed(format!(
-                "command {} failed with exit {:?}",
-                args.join(" "),
+                "command failed with exit {:?}",
                 out.status.code()
             )));
         }
