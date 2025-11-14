@@ -67,12 +67,12 @@ pub fn encrypt<Algo: CryptoAlgo>(plain: &[u8], key: &[u8], aad: &[u8]) -> Result
     Ok((ciphertext, nonce_bytes))
 }
 
-pub fn encrypt_str<Algo: CryptoAlgo>(plain: &str, passphrase: &str, aad: &str) -> Result<String, CryptoError> {
+pub fn encrypt_str<Algo: CryptoAlgo>(plain: &str, passphrase: &str, aad: &str, pepper: Option<&[u8]>) -> Result<String, CryptoError> {
     if passphrase.len() < PASSPHRASE_LENGTH {
         return Err(CryptoError::InvalidPassphraseLength);
     }
 
-    let key_derivation = KeyDerivation::new(None)?;
+    let key_derivation = KeyDerivation::new(pepper)?;
     let salt = key_derivation.generate_salt()?;
     let key = key_derivation.derive(passphrase, &salt)?;
 
@@ -203,7 +203,7 @@ mod tests {
         let plain = "hello string";
         let aad = "test";
 
-        let encryption_result = encrypt_str::<XChaCha20Poly1305>(plain, key, aad);
+        let encryption_result = encrypt_str::<XChaCha20Poly1305>(plain, key, aad, None);
         assert!(encryption_result.is_ok());
 
         let encrypted = encryption_result.unwrap();
@@ -222,7 +222,7 @@ mod tests {
         let plain = "hello string";
         let aad = "test";
 
-        let encryption_result = encrypt_str::<ChaCha20Poly1305>(plain, key, aad);
+        let encryption_result = encrypt_str::<ChaCha20Poly1305>(plain, key, aad, None);
         assert!(encryption_result.is_ok());
 
         let encrypted = encryption_result.unwrap();
@@ -241,7 +241,7 @@ mod tests {
         let plain = "hello string";
         let aad = "test";
 
-        let encryption_result = encrypt_str::<Aes256Gcm>(plain, key, aad);
+        let encryption_result = encrypt_str::<Aes256Gcm>(plain, key, aad, None);
         assert!(encryption_result.is_ok());
 
         let encrypted = encryption_result.unwrap();
@@ -260,7 +260,7 @@ mod tests {
         let plain = "hello string";
         let aad = "test";
 
-        let result = encrypt_str::<Aes256Gcm>(plain, key, aad);
+        let result = encrypt_str::<Aes256Gcm>(plain, key, aad, None);
 
         assert!(result.is_err(), "short key should fail");
     }

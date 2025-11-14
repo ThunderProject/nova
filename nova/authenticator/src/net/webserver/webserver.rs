@@ -1,25 +1,22 @@
+use crate::crypto::crypto::{CryptoAlgo, decrypt_str};
+use crate::crypto::key_derivation::{SALT_LEN};
+use crate::crypto::vault::{Vault, VaultSecrets};
+use axum::handler::HandlerWithoutStateExt;
+use axum::http::uri::Authority;
+use axum::http::{StatusCode, Uri};
+use axum::response::{Redirect};
+use axum_extra::extract::Host;
+use axum_server::tls_rustls::RustlsConfig;
+use chacha20poly1305::XChaCha20Poly1305;
+use pkcs8::{DecodePrivateKey, LineEnding, SecretDocument};
+use serde::{Deserialize};
 use std::net::SocketAddr;
 use std::path::PathBuf;
-use axum::{Json, Router};
-use axum::handler::HandlerWithoutStateExt;
-use axum::http::{StatusCode, Uri};
-use axum::http::uri::Authority;
-use axum::response::{IntoResponse, Redirect};
-use axum::routing::{get, post};
-use axum_extra::extract::Host;
-use base64::Engine;
-use base64::prelude::BASE64_STANDARD;
-use chacha20poly1305::XChaCha20Poly1305;
-use serde::{Deserialize, Serialize};
+use rustls::crypto::CryptoProvider;
 use thiserror::Error;
 use tracing::{debug, error, info, warn};
-use crate::crypto::crypto::{decrypt, decrypt_str, CryptoAlgo};
-use crate::crypto::key_derivation::{KeyDerivation, SALT_LEN};
-use crate::crypto::vault::{Vault, VaultSecrets};
-use pkcs8::{DecodePrivateKey, LineEnding, SecretDocument};
-use axum_server::tls_rustls::RustlsConfig;
-use tracing_subscriber::fmt::writer::EitherWriter::A;
-use zeroize::{Zeroize, Zeroizing};
+use zeroize::{Zeroizing};
+use crate::net::webserver::routes;
 
 const AAD: &str = "nova-config-v1";
 
@@ -27,26 +24,17 @@ const AAD: &str = "nova-config-v1";
 pub enum WebServerError {
     #[error("failed to bind to address {0}")]
     BindError(String, #[source] std::io::Error),
-
-    #[error("server runtime error")]
-    ServeError(#[source] std::io::Error),
 }
 
 pub struct WebServer {
     vault_config: PathBuf,
-    ports: Ports
+    ports: Ports,
 }
 
 #[derive(Clone, Copy)]
 struct Ports {
     http: u16,
     https: u16,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-struct LoginRequest {
-    username: String,
-    password: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -62,37 +50,38 @@ impl WebServer {
             vault_config,
             ports: Ports {
                 http: 24982,
-                https: 5643
-            }
+                https: 5643,
+            },
         }
     }
+
+    pub fn install_crypto_provider() -> anyhow::Result<()> {
+        CryptoProvider::install_default(rustls::crypto::aws_lc_rs::default_provider())
+            .map_err(|_| anyhow::anyhow!("Failed to install crypto provider"))?;
+        Ok(())
+    }
+
     pub async fn run(&self) -> anyhow::Result<()> {
         debug!("Starting webserver");
 
         let tls_cfg = self.load_tls_config().await?;
 
-        let app = Router::new()
-            .route("/", get(|| async { "Hello World!" }))
-            .route("/login", post(handle_login));
+        let router = routes::routes::api_router();
 
         let addr = SocketAddr::from(([127, 0, 0, 1], self.ports.https));
         debug!("Binding webserver to {addr}");
 
-        let server = axum_server::bind_rustls(addr, tls_cfg)
-            .serve(app.into_make_service());
+        let server = axum_server::bind_rustls(addr, tls_cfg).serve(router.into_make_service());
 
         info!("Webserver listening on {}", addr.to_string());
 
         // redirect http to https
         tokio::spawn(Self::tls_redirect(self.ports));
 
-        server.await
-            .map_err(
-                |err| {
-                    error!("Failed to bind to {addr}: {err}");
-                    WebServerError::BindError(addr.to_string(), err)
-                }
-            )?;
+        server.await.map_err(|err| {
+            error!("Failed to bind to {addr}: {err}");
+            WebServerError::BindError(addr.to_string(), err)
+        })?;
 
         Ok(())
     }
@@ -100,26 +89,20 @@ impl WebServer {
     async fn load_tls_config(&self) -> anyhow::Result<RustlsConfig> {
         //there is no security issue with embedding this string in the binary since it's encrypted
         let encrypted = include_str!("../../tls_config.txt");
-        let decoded_bytes =BASE64_STANDARD.decode(encrypted)?;
 
-        if decoded_bytes.len() < SALT_LEN + XChaCha20Poly1305::NONCE_SIZE {
+        if encrypted.len() < SALT_LEN + XChaCha20Poly1305::NONCE_SIZE {
             error!("Encrypted file too small/corrupted");
         }
 
-        let vault = Vault::new(&self.vault_config)?;
-        let VaultSecrets { password, pepper } = vault.fetch_secrets().await?;
+        let VaultSecrets { password, pepper } = Vault::new(&self.vault_config)?.fetch_secrets().await?;
         let pepper_bytes = pepper.as_bytes();
 
-        let decoded = String::from_utf8(decoded_bytes)?;
-        let plaintext = decrypt_str::<XChaCha20Poly1305>(&decoded, &password, AAD, Some(pepper_bytes))?;
+        let plaintext = decrypt_str::<XChaCha20Poly1305>(encrypted, &password, AAD, Some(pepper_bytes))?;
 
         let cfg: TlsConfig = toml::from_str(&plaintext)?;
         let dec_pem = Self::decrypt_pkcs8_pem(&cfg.server_key_pem, &cfg.server_key_password)?;
 
-        let config = RustlsConfig::from_pem(
-            cfg.server_certificate.into_bytes(),
-            dec_pem.into_bytes(),
-        ).await?;
+        let config = RustlsConfig::from_pem(cfg.server_certificate.into_bytes(), dec_pem.into_bytes()).await?;
 
         Ok(config)
     }
@@ -176,17 +159,10 @@ impl WebServer {
     }
 }
 
-async fn handle_login(Json(payload): Json<LoginRequest>) -> impl IntoResponse {
-    info!("Login attempt: user={}", payload.username);
-    Json("response")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test() {
-
-    }
+    fn test() {}
 }

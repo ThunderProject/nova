@@ -28,18 +28,20 @@ fn default_vault_config_path() -> PathBuf  {
     PathBuf::from("src/crypto/.vault_config.toml")
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    CryptoProvider::install_default(
-        rustls::crypto::aws_lc_rs::default_provider()
-    ).expect("installed aws-lc-rs");
-
-    let args = CliArgs::parse();
+fn init_logger() {
     tracing_subscriber::fmt()
         .with_max_level(Level::DEBUG)
         .init();
-    
+}
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    init_logger();
+    WebServer::install_crypto_provider()?;
+
+    let args = CliArgs::parse();
     let app = WebServer::new(args.vault_config_path).await;
+    
     app.run().await?;
     Ok(())
 }
