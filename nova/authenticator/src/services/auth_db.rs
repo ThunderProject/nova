@@ -30,12 +30,12 @@ impl AuthDb {
         }
     }
 
-    pub async fn fetch_user(&self, username: &String) -> anyhow::Result<User, AuthDbError> {
+    pub async fn fetch_user(&self, username: &String) -> Result<User, AuthDbError> {
         info!("Trying to fetch user with username \"{username}\" from database");
 
         let pool = self.db_pool.as_ref().ok_or(AuthDbError::DatabaseConnectionFailed)?;
 
-        let row: Option<(String, String)> = sqlx::query_as("SELECT username, password FROM users WHERE username = $1")
+        let row = sqlx::query_as("SELECT username, password FROM users WHERE username = $1")
             .bind(username)
             .fetch_optional(pool)
             .await

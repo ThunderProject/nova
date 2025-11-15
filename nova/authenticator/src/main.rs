@@ -1,13 +1,15 @@
 mod net;
 mod services;
 mod crypto;
+mod auth;
+mod ioc;
 
 use crate::net::webserver::webserver::WebServer;
 use clap::Parser;
 use mimalloc::MiMalloc;
-use rustls::crypto::CryptoProvider;
 use std::path::PathBuf;
 use tracing::Level;
+use crate::crypto::vault::Vault;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -34,14 +36,26 @@ fn init_logger() {
         .init();
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    init_logger();
-    WebServer::install_crypto_provider()?;
+fn init_vault(vault_config_path: &PathBuf) {
+    let path = vault_config_path.to_path_buf();
 
-    let args = CliArgs::parse();
-    let app = WebServer::new(args.vault_config_path).await;
-    
+    ioc::singleton::ioc().register(move || Vault::new(path.clone())
+        .expect("Failed to initialize vault"));
+}
+
+async fn run_webserver() -> anyhow::Result<()> {
+    WebServer::install_crypto_provider()?;
+    let app = WebServer::new().await;
+
     app.run().await?;
     Ok(())
+}
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let args = CliArgs::parse();
+    
+    init_vault(&args.vault_config_path);
+    init_logger();
+    run_webserver().await
 }

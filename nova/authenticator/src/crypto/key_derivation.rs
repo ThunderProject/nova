@@ -1,5 +1,5 @@
 use argon2::{Algorithm, Argon2, Params, Version};
-use rand::{rngs::OsRng, RngCore, TryRngCore};
+use rand::{rngs::OsRng, TryRngCore};
 use zeroize::{Zeroizing};
 
 #[derive(Debug, thiserror::Error)]
