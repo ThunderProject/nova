@@ -90,12 +90,14 @@ pub fn encrypt_str<Algo: CryptoAlgo>(plain: &str, passphrase: &str, aad: &str, p
 pub fn decrypt<Algo: CryptoAlgo>(key: &[u8], ciphertext: &[u8], nonce: &[u8], aad: &[u8]) -> Result<Vec<u8>, CryptoError> {
     let cipher = Algo::new_from_slice(key).map_err(|_| CryptoError::InvalidKeyLength)?;
 
-    #[allow(deprecated)]
-    // TODO: replace with "let nonce = Nonce::<Algo>::try_from(nonce_bytes.as_slice()).map_err(|_| CryptoError::InvalidNonce)?;"
-    // when we aaead crate
+
+
     if nonce.len() != <Algo as aead::AeadCore>::NonceSize::to_usize() {
         return Err(CryptoError::InvalidNonce);
     }
+    #[allow(deprecated)]
+    // TODO: replace with "let nonce = Nonce::<Algo>::try_from(nonce_bytes.as_slice()).map_err(|_| CryptoError::InvalidNonce)?;"
+    // when we aaead crate
     let nonce = Nonce::<Algo>::from_slice(nonce);
 
     let plaintext = cipher

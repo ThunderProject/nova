@@ -28,6 +28,11 @@ pub struct VaultSecrets {
     pub pepper: Zeroizing<String>,
 }
 
+pub struct JwtSecrets {
+    pub public_key: String,
+    pub private_key: Zeroizing<String>,
+}
+
 #[derive(Debug, Deserialize)]
 struct VaultField {
     name: String,
@@ -56,7 +61,7 @@ pub struct Vault {
 }
 
 impl Vault {
-    pub fn new<Path: AsRef<std::path::Path>>(config_path: &Path) -> Result<Self, VaultError> {
+    pub fn new<Path: AsRef<std::path::Path>>(config_path: Path) -> Result<Self, VaultError> {
         let contents = std::fs::read_to_string(config_path)?;
         let this = toml::from_str::<Self>(&contents)?;
         Ok(this)
@@ -67,26 +72,46 @@ impl Vault {
         Ok(())
     }
 
-    pub async fn fetch_password(&self) -> Result<String, VaultError> {
-        self.execute_command(&[
-            "get", "password", &self.item_name, "--session", &self.session_id
-        ]).await
-    }
-
-    pub async fn fetch_pepper(&self) -> Result<String, VaultError> {
-        self.fetch_field("pepper").await
-    }
-
-    pub async fn fetch_secrets(&self) -> Result<VaultSecrets, VaultError> {
+    pub async fn fetch_tls_secrets(&self) -> Result<VaultSecrets, VaultError> {
         let (password, pepper) = tokio::try_join!(
-            self.fetch_password(),
-            self.fetch_pepper(),
+            self.fetch_tls_password(),
+            self.fetch_tls_pepper(),
         )?;
 
         Ok(VaultSecrets {
             password: Zeroizing::new(password),
             pepper: Zeroizing::new(pepper),
         })
+    }
+
+    pub async fn fetch_jwt_secrets(&self) -> Result<JwtSecrets, VaultError> {
+        let (public_key, private_key) = tokio::try_join!(
+            self.fetch_jwt_public_key(),
+            self.fetch_jwt_private_key(),
+        )?;
+
+        Ok(JwtSecrets {
+            public_key,
+            private_key: Zeroizing::new(private_key),
+        })
+    }
+
+    async fn fetch_tls_password(&self) -> Result<String, VaultError> {
+        self.execute_command(&[
+            "get", "password", &self.item_name, "--session", &self.session_id
+        ]).await
+    }
+
+    async fn fetch_tls_pepper(&self) -> Result<String, VaultError> {
+        self.fetch_field("pepper").await
+    }
+
+    async fn fetch_jwt_public_key(&self) -> Result<String, VaultError> {
+        self.fetch_field("jwt_public_key").await
+    }
+
+    async fn fetch_jwt_private_key(&self) -> Result<String, VaultError> {
+        self.fetch_field("jwt_private_key").await
     }
 
     async fn fetch_field(&self, field_name: &str) -> Result<String, VaultError> {

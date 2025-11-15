@@ -1,22 +1,25 @@
-use crate::crypto::crypto::{CryptoAlgo, decrypt_str};
-use crate::crypto::key_derivation::{SALT_LEN};
+use crate::crypto::crypto::{decrypt_str, CryptoAlgo};
+use crate::crypto::key_derivation::SALT_LEN;
 use crate::crypto::vault::{Vault, VaultSecrets};
+use crate::net::webserver::routes;
+use crate::services::auth_service::Auth;
+use axum::extract::FromRef;
 use axum::handler::HandlerWithoutStateExt;
 use axum::http::uri::Authority;
 use axum::http::{StatusCode, Uri};
-use axum::response::{Redirect};
+use axum::response::Redirect;
 use axum_extra::extract::Host;
 use axum_server::tls_rustls::RustlsConfig;
 use chacha20poly1305::XChaCha20Poly1305;
 use pkcs8::{DecodePrivateKey, LineEnding, SecretDocument};
-use serde::{Deserialize};
-use std::net::SocketAddr;
-use std::path::PathBuf;
 use rustls::crypto::CryptoProvider;
+use serde::Deserialize;
+use std::net::SocketAddr;
+use std::sync::Arc;
 use thiserror::Error;
 use tracing::{debug, error, info, warn};
-use zeroize::{Zeroizing};
-use crate::net::webserver::routes;
+use zeroize::Zeroizing;
+use crate::ioc::singleton::ioc;
 
 const AAD: &str = "nova-config-v1";
 
@@ -26,8 +29,26 @@ pub enum WebServerError {
     BindError(String, #[source] std::io::Error),
 }
 
+#[derive(Clone)]
+pub struct AppState {
+    pub auth_service: Arc<Auth>
+}
+
+#[derive(Clone)]
+pub struct AuthState {
+    pub auth_service: Arc<Auth>,
+}
+
+impl FromRef<Arc<AppState>> for AuthState {
+    fn from_ref(state: &Arc<AppState>) -> Self {
+        AuthState {
+            auth_service: state.auth_service.clone(),
+        }
+    }
+}
+
 pub struct WebServer {
-    vault_config: PathBuf,
+    pub auth_service: Arc<Auth>,
     ports: Ports,
 }
 
@@ -45,9 +66,9 @@ pub struct TlsConfig {
 }
 
 impl WebServer {
-    pub async fn new(vault_config: PathBuf) -> Self {
+    pub async fn new() -> Self {
         Self {
-            vault_config,
+            auth_service: Arc::new(Auth::new().await),
             ports: Ports {
                 http: 24982,
                 https: 5643,
@@ -66,7 +87,11 @@ impl WebServer {
 
         let tls_cfg = self.load_tls_config().await?;
 
-        let router = routes::routes::api_router();
+        let state = Arc::new(AppState {
+            auth_service: self.auth_service.clone()
+        });
+
+        let router = routes::routes::api_router(state);
 
         let addr = SocketAddr::from(([127, 0, 0, 1], self.ports.https));
         debug!("Binding webserver to {addr}");
@@ -94,7 +119,7 @@ impl WebServer {
             error!("Encrypted file too small/corrupted");
         }
 
-        let VaultSecrets { password, pepper } = Vault::new(&self.vault_config)?.fetch_secrets().await?;
+        let VaultSecrets { password, pepper } = ioc().resolve::<Vault>().fetch_tls_secrets().await?;
         let pepper_bytes = pepper.as_bytes();
 
         let plaintext = decrypt_str::<XChaCha20Poly1305>(encrypted, &password, AAD, Some(pepper_bytes))?;
@@ -157,12 +182,4 @@ impl WebServer {
 
         Ok(())
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test() {}
 }
