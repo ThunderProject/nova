@@ -18,7 +18,7 @@ type PresetSelectProps = {
     onDelete: (name: string) => void;
 };
 
-export function PresetSelect({ presets, activePreset, onSelect, onDelete, }: PresetSelectProps) {
+export function PresetSelect({ activePreset, onDelete, onSelect, presets, }: PresetSelectProps) {
     const combobox = useCombobox();
 
     useEffect(() => {
