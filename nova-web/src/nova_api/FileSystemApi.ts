@@ -1,6 +1,6 @@
 import {logger} from "../lib/Logger.ts";
-import {invokeNovaCommand, NovaCommand,} from "./NovaApi.ts";
 import {err, ok, type Result} from "../lib/Result.ts";
+import {invokeNovaCommand, NovaCommand,} from "./NovaApi.ts";
 
 export class NovaFileSystemApi {
     public static async read(path: string): Promise<Result<string>> {
@@ -16,7 +16,7 @@ export class NovaFileSystemApi {
 
     public static async write(path: string, contents: string): Promise<boolean> {
         try {
-            return await invokeNovaCommand(NovaCommand.WriteFile, {path: path, contents: contents});
+            return await invokeNovaCommand(NovaCommand.WriteFile, {contents: contents, path: path});
         }
         catch (error) {
             const errMsg: string = `Failed to write contents to file "${path}". Reason: ${error}`;
@@ -110,6 +110,16 @@ export class NovaFileSystemApi {
             const errMsg: string = `Failed to check if folder "${path}" is empty". Reason: ${error}`;
             logger.error(errMsg);
             return false;
+        }
+    }
+
+    public static async join(parts: string[]): Promise<string> {
+        try {
+            return await invokeNovaCommand(NovaCommand.Join, { parts });
+        } catch (error) {
+            const errMsg = `Failed to join path parts "${parts.join(", ")}". Reason: ${error}`;
+            logger.error(errMsg);
+            throw error;
         }
     }
 }

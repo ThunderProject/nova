@@ -6,6 +6,6 @@ interface UIState {
 }
 
 export const useUIStore = create<UIState>((set) => ({
-    sidebarWidth: 300,
     setSidebarWidth: (width) => set({ sidebarWidth: width }),
+    sidebarWidth: 300,
 }));

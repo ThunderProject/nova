@@ -1,5 +1,5 @@
-import {type Result} from "./Result.ts";
 import {NovaFileSystemApi} from "../nova_api/FileSystemApi.ts";
+import {type Result} from "./Result.ts";
 
 export class FileSystem {
     public static async read(path: string): Promise<Result<string>> {
@@ -40,5 +40,9 @@ export class FileSystem {
 
     public static async isEmpty(path: string): Promise<boolean> {
         return NovaFileSystemApi.isEmpty(path);
+    }
+
+    public static async join(parts: string[]): Promise<string> {
+        return NovaFileSystemApi.join(parts);
     }
 }

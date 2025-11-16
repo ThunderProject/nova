@@ -4,13 +4,13 @@ import {
     IconDeviceFloppy,
     IconMenu2
 } from '@tabler/icons-react';
-import classes from './MainTabBar.module.css';
 import {useEffect, useRef, useState} from "react";
-import nova_logo from '../../assets/nova_icon.png';
 import { useNavigate, useLocation } from 'react-router-dom';
+import nova_logo from '../../assets/nova_icon.png';
 import {OpenProjectButton} from "../OpenProjectButton.tsx";
 import {Project} from "../../project/project.ts";
 import {CreateProjectButton} from "../CreateProjectButton/CreateProjectButton.tsx";
+import classes from './MainTabBar.module.css';
 
 const tabs = [
     { label: 'Patient data', path: '/patients' },
@@ -63,7 +63,7 @@ export function MainTabBar() {
         <div className={classes.header}>
             {/* Toolbar Row */}
             <div className={classes.toolbarRow}>
-                <img src={nova_logo} alt="Nova logo" style={{width: logoSize, height: logoSize, marginLeft: 4, marginRight: 8}}/>
+                <img src={nova_logo} alt="Nova logo" style={{height: logoSize, marginLeft: 4, marginRight: 8, width: logoSize}}/>
                 {menuOpen ? (
                     <div ref={menuRef} style={{display: 'inline-flex', gap: rem(8)}}>
                         <CreateProjectButton

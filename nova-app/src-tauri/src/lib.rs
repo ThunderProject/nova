@@ -11,6 +11,7 @@ use time::macros::format_description;
 use tracing_subscriber::{fmt};
 use tracing_subscriber::fmt::{FormatEvent, FormatFields};
 use tracing_subscriber::registry::LookupSpan;
+use crate::commands::auth::login;
 
 struct LogFormatter;
 impl<S, N> FormatEvent<S, N> for LogFormatter
@@ -37,8 +38,8 @@ where
         let thread_id = thread.id();
 
         match thread.name() {
-            Some(name) => write!(writer, "{} {:?} ", name, thread_id)?,
-            None => write!(writer, "{:?} ", thread_id)?
+            Some(name) => write!(writer, "{name} {thread_id:?}")?,
+            None => write!(writer, "{thread_id:?}")?
         }
 
         write!(writer, "{}: ", meta.target())?;
@@ -111,7 +112,8 @@ pub fn run() {
             create_new_project,
             is_empty,
             join,
-            log
+            log,
+            login
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
