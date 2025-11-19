@@ -1,9 +1,9 @@
 mod commands;
+mod auth_state;
 
 use std::fs::create_dir_all;
-use nova::application::App;
+use ::nova::application::App;
 use tracing::{Event, Level, Subscriber};
-use crate::commands::file_system::file_system::*;
 use crate::commands::project::project::*;
 use crate::commands::log::*;
 use time::{OffsetDateTime, UtcOffset};
@@ -11,7 +11,9 @@ use time::macros::format_description;
 use tracing_subscriber::{fmt};
 use tracing_subscriber::fmt::{FormatEvent, FormatFields};
 use tracing_subscriber::registry::LookupSpan;
+use crate::auth_state::auth_state::AuthState;
 use crate::commands::auth::login;
+use crate::commands::file_system::*;
 
 struct LogFormatter;
 impl<S, N> FormatEvent<S, N> for LogFormatter
@@ -98,6 +100,7 @@ pub fn run() {
     }
 
     builder
+        .manage(AuthState::default())
         .invoke_handler(tauri::generate_handler![
             read_file_to_string,
             create_dir,
