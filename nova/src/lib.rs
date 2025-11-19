@@ -5,8 +5,8 @@ pub mod application;
 pub mod fs;
 mod compression;
 pub mod ioc;
-mod ipc;
-mod net;
+mod api;
+pub mod auth;
 
 pub use dicom::bridge::dicom_bridge::dicom_api::init;
 
