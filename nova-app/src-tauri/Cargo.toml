@@ -31,4 +31,6 @@ anyhow = "1.0.100"
 tauri-plugin-dialog = "2.4.2"
 tracing = "0.1.41"
 time = { version = "0.3.44", features = ["local-offset"] }
+authenticated_command = { path = "src/authenticated_command" }
+state = "0.6.0"
 
