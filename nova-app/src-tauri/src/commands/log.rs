@@ -2,7 +2,6 @@ use tracing::{debug, error, info, warn};
 
 #[tauri::command]
 pub fn log(level: String, msg: String) {
-    let target = "nova-web";
     match level.as_str() {
         "debug" => debug!(target: "nova-web", "{}", msg),
         "info" => info!(target: "nova-web", "{}", msg),

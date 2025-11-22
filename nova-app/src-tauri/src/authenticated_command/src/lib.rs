@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{FnArg, ItemFn, PatIdent, ReturnType, parse_macro_input, token::Type};
+use syn::{FnArg, ItemFn, PatIdent, parse_macro_input};
 
 #[proc_macro_attribute]
 pub fn authenticated_command(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -39,7 +39,7 @@ pub fn authenticated_command(_attr: TokenStream, item: TokenStream) -> TokenStre
 
     let internal_fn_name = format_ident!("__{}_internal", function_name);
 
-    let call_internal = match(asyncness) {
+    let call_internal = match asyncness {
         Some(_) => quote!( #internal_fn_name(#( #arg_names ),*).await ),
         None => quote!( #internal_fn_name(#( #arg_names ),*) )
     };

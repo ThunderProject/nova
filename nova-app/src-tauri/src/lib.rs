@@ -83,7 +83,7 @@ fn setup_logging() {
 pub fn run() {
     setup_logging();
     let _app = App::initialize();
-    
+
     //#[cfg(debug_assertions)]
     // let devtools = tauri_plugin_devtools::init();
     let fs = tauri_plugin_fs::init();

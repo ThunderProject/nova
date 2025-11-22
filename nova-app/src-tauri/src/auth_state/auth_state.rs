@@ -12,5 +12,5 @@ use std::sync::atomic;
 /// bypassed, no authenticated data can be accessed without proper tokens.
 #[derive(Default)]
 pub struct AuthState {
-    pub(crate) authenticated: atomic::AtomicBool,
+    pub authenticated: atomic::AtomicBool,
 }

@@ -1,8 +1,9 @@
 use std::sync::Arc;
 use authenticated_command::authenticated_command;
-use nova::ioc;
-use nova::project::project::{Project, ProjectParams};
 use tracing::{debug, info};
+use nova_project::project::*;
+use nova_di::ioc;
+
 
 #[authenticated_command]
 pub async fn create_new_project(params: ProjectParams) -> Result<(), String> {
@@ -18,7 +19,7 @@ pub async fn create_new_project(params: ProjectParams) -> Result<(), String> {
         Ok(())
     }
     else {
-        Err(format!("Project creation failed: {:?}", result.err()).into())
+        Err(format!("Project creation failed: {:?}", result.err()))
     }
 }
 
