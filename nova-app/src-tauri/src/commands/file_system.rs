@@ -1,5 +1,5 @@
 use authenticated_command::authenticated_command;
-use nova::fs::file_system::FileSystem;
+use nova_fs::file_system::FileSystem;
 
 #[authenticated_command]
 pub async fn read_file_to_string(file: String) -> Result<String, String> {
@@ -55,4 +55,3 @@ pub async fn write_file(path: String, contents: String) -> Result<bool, String> 
 pub async fn is_empty(path: String) -> Result<bool, String> {
     Ok(FileSystem::is_empty_async(path).await)
 }
-

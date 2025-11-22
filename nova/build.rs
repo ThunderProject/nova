@@ -12,15 +12,15 @@ fn main() {
     //let profile = env::var("PROFILE").expect("Cargo should always set PROFILE");
     let profile = "release";
     let lib_dir = manifest_dir.join(format!("src/dicom/cxx/build/x86_64/{}", profile));
-    
+
     println!("cargo:rustc-link-search=native={}", lib_dir.display());
     println!("cargo:rustc-link-core=dylib=dicom_api");
     println!("cargo:rustc-link-lib=dylib=dicom_api");
-    
+
     if cfg!(target_os = "windows") {
         let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
         let target_dir = out_dir.ancestors().nth(3).unwrap();
-        
+
         let dll_src = lib_dir.join("dicom_api.dll");
         let dll_dst = target_dir.join("dicom_api.dll");
 
