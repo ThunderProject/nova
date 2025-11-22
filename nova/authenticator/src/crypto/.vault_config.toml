@@ -1,4 +1,0 @@
-#The current vault implementation only supports Bitwarden as its backend provider.
-vault_session = "<SESSION_ID>"
-vault_cli_path = "bw"
-vault_item_name = "nova auth"

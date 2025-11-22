@@ -1,0 +1,15 @@
+[package]
+name = "nova_project"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+arc-swap = "1.7.1"
+anyhow = "1.0.100"
+serde = { version = "1.0.228", features = ["derive"] }
+tempfile = "3.23.0"
+thiserror = "2.0.17"
+tracing = "0.1.41"
+nova_fs = { path = "../nova_fs" }
+nova_compression = { path = "../nova_compression" }
+tokio = "1.48.0"
