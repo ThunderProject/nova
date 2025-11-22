@@ -1,0 +1,11 @@
+[package]
+name = "nova_fs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tracing = "0.1.41"
+futures = "0.3.31"
+rayon = "1.11.0"
+tokio = { version = "1.45.1", features = ["fs", "rt-multi-thread", "macros"] }
+tempfile = "3.23.0"
