@@ -3,9 +3,11 @@ use chrono::Duration;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use thiserror::Error;
-use tracing::warn;
+use tracing::{debug, error, info, warn};
 use nova_api::authenticator_api::AuthenticatorApi;
 use nova_rate_limit::fixed::RateLimiter;
+
+use crate::session_manager::SessionManager;
 
 #[derive(Clone)]
 pub struct Tokens {
@@ -51,7 +53,7 @@ impl AuthService {
         }
     }
 
-    pub async fn login(&self, username: &str, password: &str) -> Result<(), LoginError> {
+    pub async fn login(&self, username: &str, password: &str, keep_user_logged_in: bool) -> Result<(), LoginError> {
         if !self.rate_limiter.lock().try_acquire() {
             return Err(LoginError::RateLimitReached);
         }
@@ -68,6 +70,17 @@ impl AuthService {
         if result.is_err() {
             warn!("another login attempt was made before this one completed, ignoring this one");
             return Err(LoginError::ConcurrentLogin);
+        }
+
+        if keep_user_logged_in {
+            match SessionManager::persist_login(&response.refresh_token) {
+                Ok(_) => {
+                    info!("Persistent session saved successfully.")
+                },
+                Err(err) => {
+                    error!("Failed to persist login. User will have to login again if app is restarted. Error: {err}");
+                }
+            }
         }
 
         self.tokens.store(
