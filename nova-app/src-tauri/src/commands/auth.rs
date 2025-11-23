@@ -6,10 +6,10 @@ use tracing::debug;
 use nova_di::ioc;
 
 #[tauri::command]
-pub async fn login(username: String, password: String, state: State<'_, AuthState>) -> Result<(), String> {
+pub async fn login(username: String, password: String, keep_user_logged_in: bool, state: State<'_, AuthState>) -> Result<(), String> {
     let auth = ioc::singleton::ioc().resolve::<AuthService>();
 
-    match auth.login(&username, &password).await {
+    match auth.login(&username, &password, keep_user_logged_in).await {
         Ok(()) => {
             state.authenticated.store(true, atomic::Ordering::Relaxed);
             Ok(())

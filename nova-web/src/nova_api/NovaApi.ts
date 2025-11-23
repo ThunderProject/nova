@@ -37,7 +37,7 @@ type NovaCommandMap = {
     [NovaCommand.IsEmpty]: { params: { path: string; }; result: boolean };
     [NovaCommand.Log]: { params: { level: string; msg: string }; result: void };
     [NovaCommand.Join]: { params: { parts: string[] }; result: string };
-    [NovaCommand.Login]: { params: { username: string; password: string }; result: void };
+    [NovaCommand.Login]: { params: { username: string; password: string, keepUserLoggedIn: boolean }; result: void };
 };
 
 export async function invokeNovaCommand<K extends keyof NovaCommandMap>(
@@ -96,9 +96,9 @@ export class NovaApi {
         }
     }
 
-    static async login(username: string, password: string): Promise<Result<void>> {
+    static async login(username: string, password: string, keepUserLoggedIn: boolean): Promise<Result<void>> {
         try {
-            await invokeNovaCommand(NovaCommand.Login, { username, password });
+            await invokeNovaCommand(NovaCommand.Login, { username, password, keepUserLoggedIn });
             return ok<void>(undefined);
         } catch (error) {
             //guaranteed from backend
