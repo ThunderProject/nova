@@ -1,4 +1,5 @@
-use crate::auth_state::auth_state::AuthState;
+pub(crate) use crate::auth_state::auth_state::AuthState;
+use authenticated_command::authenticated_command;
 use nova_auth::auth_service::*;
 use std::sync::atomic;
 use tauri::State;
@@ -27,4 +28,9 @@ pub async fn login(username: String, password: String, keep_user_logged_in: bool
             Err(error_message.to_string())
         }
     }
+}
+
+#[authenticated_command]
+pub async fn is_authenticated() -> Result<(), String> {
+    Ok(())
 }

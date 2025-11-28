@@ -10,7 +10,7 @@ pub struct Settings {
 }
 pub struct App {
     settings: Settings,
-} 
+}
 
 impl App {
     pub fn initialize()-> Self {
@@ -27,4 +27,3 @@ impl App {
         }
     }
 }
-
