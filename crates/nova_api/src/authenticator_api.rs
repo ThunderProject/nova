@@ -1,10 +1,15 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use zeroize::Zeroizing;
 
 #[derive(Serialize)]
 struct LoginRequest {
     username: String,
     password: Zeroizing<String>,
+}
+
+#[derive(Serialize)]
+struct RefreshRequest {
+    refresh_token: String
 }
 
 #[derive(Debug, Deserialize)]
@@ -35,13 +40,29 @@ impl AuthenticatorApi {
             password: zeroized_pw.clone(),
         };
 
+        let response = self.post::<LoginRequest, LoginResponse>(&url, &body).await?;
+        Ok(response)
+    }
+
+    pub async fn refresh(&self, refresh_token: &str) -> anyhow::Result<LoginResponse>  {
+        let url = format!("{}/refresh", self.base_url);
+
+        let body = RefreshRequest {
+            refresh_token: refresh_token.to_owned()
+        };
+
+        let response = self.post::<RefreshRequest, LoginResponse>(&url, &body).await?;
+        Ok(response)
+    }
+
+    async fn post<Body: Serialize + ?Sized, Response: DeserializeOwned>(&self, url: &str, body: &Body) -> anyhow::Result<Response> {
         let response = self.http_client
-            .post(&url)
-            .json(&body)
+            .post(url)
+            .json(body)
             .send()
             .await?
             .error_for_status()?
-            .json::<LoginResponse>()
+            .json::<Response>()
             .await?;
 
         Ok(response)

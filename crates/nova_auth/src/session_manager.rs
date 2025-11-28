@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::PathBuf;
 
 use keyring::Entry;
 use nova_crypto::key_derivation::PASSPHRASE_LENGTH;
@@ -6,7 +7,7 @@ use nova_crypto::password_generator::{PasswordGenerator};
 use nova_crypto::crypto::*;
 use chacha20poly1305::XChaCha20Poly1305;
 use nova_fs::folder_resolver::FolderResolver;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tracing::debug;
 
 const SERVICE_NAME: &str = "com.nova.auth";
@@ -14,23 +15,22 @@ const USER_NAME: &str = "nova_token";
 const AAD: &str = "nova_persist";
 const SESSION_VERSION: &str = "1.0.0";
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct Session {
     session: SessionData,
     keys: SessionKeys,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct SessionData {
     version: String,
     created_at: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct SessionKeys {
     refresh: String,
 }
-
 
 pub struct SessionManager {}
 
@@ -49,7 +49,7 @@ impl SessionManager {
                 debug!("No existing keyring entry found. Creating a new passphrase.");
 
                 if let Some(password) = PasswordGenerator::default().generate(PASSPHRASE_LENGTH) {
-                    SessionManager::create_entry(&password)?;
+                    SessionManager::store_keyring_password(&password)?;
                     SessionManager::persist_session(token, &password)?;
                 }
                 else {
@@ -63,15 +63,40 @@ impl SessionManager {
         Ok(())
     }
 
-    fn create_entry(password: &str) -> anyhow::Result<()> {
+    pub fn load_session() -> anyhow::Result<String> {
+        let file_path = SessionManager::session_path();
+
+        if !file_path.exists() {
+            debug!("Failed to load persisted session. Reason: file does not exist");
+            anyhow::bail!("Failed to load session. File does not exist");
+        }
+
+        let file_content = fs::read_to_string(&file_path)?;
+        let parsed: Session = toml::from_str(&file_content)?;
+
+        let keyring_password = SessionManager::fetch_keyring_password()?;
+        let token = decrypt_str::<XChaCha20Poly1305>(&parsed.keys.refresh, &keyring_password, AAD, None)?;
+
+        debug!("Session loaded successfully");
+
+        Ok(token)
+    }
+
+    fn store_keyring_password(password: &str) -> anyhow::Result<()> {
         Entry::new(SERVICE_NAME, USER_NAME)?.set_password(password)?;
-        debug!("Keyring entry created. service={SERVICE_NAME}, user={USER_NAME}");
+        debug!("Stored password to keyring entry. service={SERVICE_NAME}, user={USER_NAME}");
         Ok(())
     }
 
+    fn fetch_keyring_password() -> anyhow::Result<String> {
+        debug!("Fetch password from keyring entry. service={SERVICE_NAME}, user={USER_NAME}");
+
+        let password = Entry::new(SERVICE_NAME, USER_NAME)?.get_password()?;
+        Ok(password)
+    }
+
     fn persist_session(token: &str, password: &str) -> anyhow::Result<()> {
-        let session_dir = FolderResolver::resolve_session_dir();
-        let file_path = session_dir.join("nova_session.toml");
+        let file_path = SessionManager::session_path();
 
         let encrypted = encrypt_str::<XChaCha20Poly1305>(token, password, AAD, None)?;
 
@@ -93,18 +118,7 @@ impl SessionManager {
         Ok(())
     }
 
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn create_entry() {
-
-        match SessionManager::persist_login("jaogren") {
-            Ok(_) => println!("Successs persisting login"),
-            Err(e) => println!("Faield to persist login: {e}")
-        }
+    fn session_path() -> PathBuf {
+        FolderResolver::resolve_session_dir().join("nova_session.toml")
     }
 }

@@ -53,6 +53,35 @@ impl AuthService {
         }
     }
 
+    pub async fn try_load_session(&self) -> Result<(), LoginError> {
+        if self.logged_in.load(Ordering::Acquire) {
+            //It does not make sense to load a session if we are already logged in
+            return Err(LoginError::AlreadyLoggedIn);
+        }
+
+        let refresh_token = SessionManager::load_session()
+            .map_err(|e| LoginError::FailedToLogin(e.to_string()))?;
+
+        let response = self.auth_api.refresh(&refresh_token).await
+            .map_err(|e| LoginError::FailedToLogin(e.to_string()))?;
+
+        let result = self.logged_in.compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire);
+
+        if result.is_err() {
+            warn!("another login or load session attempt was made before this one completed, ignoring this one");
+            return Err(LoginError::ConcurrentLogin);
+        }
+
+        self.tokens.store(
+            Some(Arc::new(Tokens {
+                access: response.access_token,
+                refresh: response.refresh_token
+            }))
+        );
+
+        Ok(())
+    }
+
     pub async fn login(&self, username: &str, password: &str, keep_user_logged_in: bool) -> Result<(), LoginError> {
         if !self.rate_limiter.lock().try_acquire() {
             return Err(LoginError::RateLimitReached);
