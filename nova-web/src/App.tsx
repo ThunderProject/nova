@@ -2,7 +2,7 @@ import '@mantine/core/styles.css';
 
 import { MantineProvider } from '@mantine/core';
 import {ModalsProvider} from "@mantine/modals";
-import {Navigate, Route, Routes} from "react-router";
+import {Navigate, Route, Routes, useLocation} from "react-router";
 import { Toaster } from 'react-hot-toast';
 import React, {useEffect, useState} from "react";
 import { theme } from './theme';
@@ -22,6 +22,7 @@ function AuthGuard({ isAuth, children }: { isAuth: boolean; children: React.Reac
 export default function App() {
     const [checked, setChecked] = useState(false);
     const [isAuth, setIsAuth] = useState(false);
+    const loc = useLocation();
 
     useEffect(() => {
         (async () => {
@@ -30,6 +31,7 @@ export default function App() {
             setChecked(true);
         })();
     }, []);
+
 
     if(!checked) {
         return null
@@ -43,30 +45,35 @@ export default function App() {
             <ModalsProvider>
                 <Toaster/>
 
-                {location.pathname !== "/login" && <MainTabBar />}
+                {loc.pathname !== "/login" && <MainTabBar />}
 
                 <Routes>
                     <Route
                         path="/login"
-                        element={isAuth ? <Navigate to="/viewer" replace /> : <AuthenticationPage />}
+                        element={ isAuth ? <Navigate to="/viewer" replace /> : <AuthenticationPage /> }
                     />
 
                     <Route
                         path="/viewer"
                         element={
-                        <AuthGuard isAuth={isAuth}>
-                            <Viewer />
-                        </AuthGuard>}
+                            <AuthGuard isAuth={isAuth}>
+                                <Viewer />
+                            </AuthGuard>
+                        }
                     />
+
                     <Route
                         path="/"
                         element={
                             <AuthGuard isAuth={isAuth}>
                                 <Viewer />
-                            </AuthGuard>}
+                            </AuthGuard>
+                        }
                     />
+
                     <Route path="*" element={<PageNotFound />} />
                 </Routes>
+
             </ModalsProvider>
         </MantineProvider>
     );

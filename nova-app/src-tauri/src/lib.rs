@@ -88,7 +88,7 @@ async fn try_load_session(auth_state: &AuthState) {
     match ioc::singleton::ioc().resolve::<AuthService>().try_load_session().await {
         Ok(_) => {
             auth_state.authenticated.store(true, Ordering::Relaxed);
-            info!("yey")
+            info!("successfully loaded session")
         }
         Err(_) => {
             warn!("Failed to load session")

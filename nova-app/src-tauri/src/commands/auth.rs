@@ -31,6 +31,6 @@ pub async fn login(username: String, password: String, keep_user_logged_in: bool
 }
 
 #[authenticated_command]
-pub async fn is_authenticated() -> Result<(), String> {
-    Ok(())
+pub async fn is_authenticated() -> Result<bool, String> {
+    Ok(true)
 }
