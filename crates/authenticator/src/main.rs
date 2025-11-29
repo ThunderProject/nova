@@ -2,13 +2,13 @@ mod net;
 mod services;
 mod crypto;
 mod auth;
-mod ioc;
 
 use crate::net::webserver::webserver::WebServer;
 use clap::Parser;
 use mimalloc::MiMalloc;
 use std::path::PathBuf;
 use tracing::Level;
+use nova_di::ioc;
 use crate::crypto::vault::Vault;
 
 #[global_allocator]
