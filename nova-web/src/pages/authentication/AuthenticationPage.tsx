@@ -1,28 +1,43 @@
 import {
-    ActionIcon,
+    Alert,
     Anchor,
     Button,
     Checkbox,
-    Group,
+    Group, Loader,
     Paper,
     PasswordInput,
     Text,
     TextInput,
     Title,
-    Tooltip,
 } from "@mantine/core";
 import { useState } from "react";
-import { IconRefresh } from "@tabler/icons-react";
-import { PasswordGenerator } from "../../utils/PasswordGenerator";
+import { useNavigate } from "react-router-dom";
+import {NovaApi} from "../../nova_api/NovaApi.ts";
 import classes from "./AuthenticationPage.module.css";
 
 export function AuthenticationPage() {
+    const [username, seUsername] = useState("");
     const [password, setPassword] = useState("");
+    const [keepUserLoggedIn, setKeepUserLoggedIn] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+    const navigate = useNavigate();
 
-    const handleGenerate = () => {
-        const newPassword = PasswordGenerator.generate();
-        setPassword(newPassword);
-    };
+    const handleLogin = async () => {
+        setError(null);
+        setLoading(true);
+
+        const loginResult = await NovaApi.login(username, password, keepUserLoggedIn);
+
+        setLoading(false);
+
+        if(loginResult.hasError()) {
+            setError(loginResult.error)
+            return;
+        }
+
+        navigate("/viewer")
+    }
 
     return (
         <div className={classes.wrapper}>
@@ -30,8 +45,15 @@ export function AuthenticationPage() {
                 <Title order={2} className={classes.title}>
                     Welcome back to Nova!
                 </Title>
+                <Text className={classes.subtitle}>
+                    Sign in to access your workspace
+                </Text>
 
-                <TextInput placeholder="Username" size="md" radius="md" />
+                <TextInput
+                    placeholder="Username"
+                    size="md"
+                    radius="md"
+                    onChange={(e) => seUsername(e.currentTarget.value)}/>
 
                 <PasswordInput
                     placeholder="Password"
@@ -42,23 +64,44 @@ export function AuthenticationPage() {
                     onChange={(e) => setPassword(e.currentTarget.value)}
                 />
 
+                {error && (
+                    <Alert
+                        title="Login failed"
+                        color="red"
+                        radius="sm"
+                        mt="sm"
+                        variant="light"
+                    >
+                        {error}
+                    </Alert>
+                )}
+
                 <Group justify="space-between" align="center" mt="md">
-                    <Checkbox label="Keep me logged in" size="md" />
-                    <Tooltip label="Generate a secure password">
-                        <ActionIcon
-                            variant="light"
-                            color="blue"
-                            size="lg"
-                            radius="md"
-                            onClick={handleGenerate}
-                        >
-                            <IconRefresh size={18} />
-                        </ActionIcon>
-                    </Tooltip>
+                    <Checkbox
+                        label="Keep me logged in"
+                        size="md"
+                        checked={keepUserLoggedIn}
+                        onChange={(e) => setKeepUserLoggedIn(e.currentTarget.checked)}
+                    />
                 </Group>
 
-                <Button fullWidth mt="xl" size="md" radius="md">
-                    Login
+                <Button
+                    fullWidth
+                    mt="xl"
+                    size="md"
+                    radius="md"
+                    className={classes.loginButton}
+                    onClick={handleLogin}
+                    disabled={loading}
+                >
+                    {loading ? (
+                        <Group gap="xs">
+                            <Loader size="sm" />
+                            <span>Logging in...</span>
+                        </Group>
+                    ) : (
+                        "Login"
+                    )}
                 </Button>
 
                 <Text ta="center" mt="md">
