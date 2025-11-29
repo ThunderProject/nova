@@ -63,8 +63,9 @@ impl Jwt {
     }
 
     pub fn create_tokens(&self, subject: &str) -> Option<JwtTokens> {
-        let access_token = self.create_token::<AccessToken>(subject)?;
-        let refresh_token = self.create_token::<RefreshToken>(subject)?;
+        let sub = blake3::hash(subject.as_bytes()).to_hex().to_string();
+        let access_token = self.create_token::<AccessToken>(&sub)?;
+        let refresh_token = self.create_token::<RefreshToken>(&sub)?;
 
         Some(JwtTokens { access: access_token, refresh: refresh_token })
     }

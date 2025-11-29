@@ -6,7 +6,7 @@ mod auth;
 use crate::net::webserver::webserver::WebServer;
 use clap::Parser;
 use mimalloc::MiMalloc;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing::Level;
 use nova_di::ioc;
 use crate::crypto::vault::Vault;
@@ -36,7 +36,7 @@ fn init_logger() {
         .init();
 }
 
-fn init_vault(vault_config_path: &PathBuf) {
+fn init_vault(vault_config_path: &Path) {
     let path = vault_config_path.to_path_buf();
 
     ioc::singleton::ioc().register(move || Vault::new(path.clone())
