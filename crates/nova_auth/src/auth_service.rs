@@ -121,4 +121,13 @@ impl AuthService {
 
         Ok(())
     }
+
+    pub async fn logout(&self) -> bool {
+        let result = self.logged_in.compare_exchange(true, false, Ordering::AcqRel, Ordering::Acquire);
+        if result.is_ok() {
+            self.tokens.store(None);
+            return true;
+        }
+        false
+    }
 }

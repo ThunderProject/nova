@@ -34,3 +34,16 @@ pub async fn login(username: String, password: String, keep_user_logged_in: bool
 pub async fn is_authenticated() -> Result<bool, String> {
     Ok(true)
 }
+
+#[tauri::command]
+pub async fn logout(state: State<'_, AuthState>) -> Result<(), String> {
+    if !state.authenticated.load(atomic::Ordering::Relaxed) {
+        return Err("Access denied.".to_string());
+    }
+
+    let auth = ioc::singleton::ioc().resolve::<AuthService>();
+    if auth.logout().await {
+        state.authenticated.store(true, atomic::Ordering::Relaxed);
+    }
+    Ok(())
+}

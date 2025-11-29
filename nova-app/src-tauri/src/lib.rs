@@ -14,7 +14,7 @@ use tracing_subscriber::{fmt};
 use tracing_subscriber::fmt::{FormatEvent, FormatFields};
 use tracing_subscriber::registry::LookupSpan;
 use crate::auth_state::auth_state::AuthState;
-use crate::commands::auth::login;
+use crate::commands::auth::{login, logout};
 use crate::commands::file_system::*;
 use crate::commands::project::*;
 use crate::commands::auth::is_authenticated;
@@ -138,6 +138,7 @@ pub async fn run() {
             join,
             log,
             login,
+            logout,
             is_authenticated
         ])
         .run(tauri::generate_context!())
