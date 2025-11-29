@@ -18,6 +18,11 @@ pub struct LoginResponse {
     refresh_token: String,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct RefreshTokensRequest {
+    refresh_token: String,
+}
+
 pub async fn handle_login(State(auth_state): State<AuthState>, Json(payload): Json<LoginRequest>) -> impl IntoResponse {
    match auth_state.auth_service.login(&payload.username, &payload.password).await {
        Ok(tokens) => {
@@ -35,4 +40,10 @@ pub async fn handle_login(State(auth_state): State<AuthState>, Json(payload): Js
            (StatusCode::UNAUTHORIZED,  format!("{e}")).into_response()
        }
    }
+}
+
+pub async fn handle_refresh_tokens(State(auth_state): State<AuthState>, Json(payload): Json<RefreshTokensRequest>) -> impl IntoResponse {
+    // auth_state.auth_service.
+    let result = auth_state.auth_service.refresh_tokens(&payload.refresh_token).await;
+    (StatusCode::UNAUTHORIZED,  format!("")).into_response()
 }
