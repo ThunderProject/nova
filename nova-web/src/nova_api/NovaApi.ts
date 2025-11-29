@@ -20,6 +20,7 @@ export const NovaCommand = {
     RenamePath: 'rename_path',
     WriteFile: 'write_file',
     Login: 'login',
+    IsAuthenticated: 'is_authenticated',
 } as const;
 
 type NovaCommandMap = {
@@ -38,6 +39,7 @@ type NovaCommandMap = {
     [NovaCommand.Log]: { params: { level: string; msg: string }; result: void };
     [NovaCommand.Join]: { params: { parts: string[] }; result: string };
     [NovaCommand.Login]: { params: { username: string; password: string, keepUserLoggedIn: boolean }; result: void };
+    [NovaCommand.IsAuthenticated]: { params: {}; result: boolean };
 };
 
 export async function invokeNovaCommand<K extends keyof NovaCommandMap>(
@@ -106,6 +108,16 @@ export class NovaApi {
 
             logger.error(`Login failed: ${msg}`);
             return err<string>(msg);
+        }
+    }
+
+    static async isAuthenticated(): Promise<boolean> {
+        try {
+            return await invokeNovaCommand(NovaCommand.IsAuthenticated, {});
+        }
+        catch (error) {
+            void error
+            return false;
         }
     }
 }

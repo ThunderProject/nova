@@ -1,15 +1,40 @@
 import '@mantine/core/styles.css';
 
 import { MantineProvider } from '@mantine/core';
-import { theme } from './theme';
-import {MainTabBar} from "./components/MainTabBar/MainTabBar.tsx";
-import {Route, Routes} from "react-router";
-import Viewer from './pages/viewer';
-import { Toaster } from 'react-hot-toast';
 import {ModalsProvider} from "@mantine/modals";
+import {Navigate, Route, Routes} from "react-router";
+import { Toaster } from 'react-hot-toast';
+import React, {useEffect, useState} from "react";
+import { theme } from './theme';
+import Viewer from './pages/viewer';
 import {PageNotFound} from "./pages/not_found/PageNotFound.tsx";
+import {AuthenticationPage} from "./pages/authentication/AuthenticationPage.tsx";
+import {NovaApi} from "./nova_api/NovaApi.ts";
+import {MainTabBar} from "./components/MainTabBar/MainTabBar.tsx";
+
+function AuthGuard({ isAuth, children }: { isAuth: boolean; children: React.ReactNode }) {
+    if(!isAuth) {
+        return <Navigate to="/login" replace />;
+    }
+    return <>{children}</>;
+}
 
 export default function App() {
+    const [checked, setChecked] = useState(false);
+    const [isAuth, setIsAuth] = useState(false);
+
+    useEffect(() => {
+        (async () => {
+            const result = await NovaApi.isAuthenticated();
+            setIsAuth(result);
+            setChecked(true);
+        })();
+    }, []);
+
+    if(!checked) {
+        return null
+    }
+
     return (
         <MantineProvider
             theme={theme}
@@ -17,12 +42,29 @@ export default function App() {
         >
             <ModalsProvider>
                 <Toaster/>
-                <MainTabBar/>
+
+                {location.pathname !== "/login" && <MainTabBar />}
+
                 <Routes>
-                    <Route path="/viewer" element={<Viewer />} />
-                    {/*<Route path="/viewer" element={<Viewer />} />*/}
-                    {/*<Route path="/patients" element={<Patients />} />*/}
-                    {/*<Route path="/export" element={<Export />} />*/}
+                    <Route
+                        path="/login"
+                        element={isAuth ? <Navigate to="/viewer" replace /> : <AuthenticationPage />}
+                    />
+
+                    <Route
+                        path="/viewer"
+                        element={
+                        <AuthGuard isAuth={isAuth}>
+                            <Viewer />
+                        </AuthGuard>}
+                    />
+                    <Route
+                        path="/"
+                        element={
+                            <AuthGuard isAuth={isAuth}>
+                                <Viewer />
+                            </AuthGuard>}
+                    />
                     <Route path="*" element={<PageNotFound />} />
                 </Routes>
             </ModalsProvider>
