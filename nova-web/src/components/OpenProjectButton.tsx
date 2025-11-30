@@ -16,10 +16,10 @@ export function OpenProjectButton({ iconSize = 24, onClicked, onFileSelected }: 
         try {
             onClicked();
             const selectedPath = await open({
-                title: "Open project",
-                filters: [{ name: 'Project Files', extensions: supportedFileExtensions }],
-                multiple: false,
                 directory: false,
+                filters: [{ extensions: supportedFileExtensions, name: 'Project Files' }],
+                multiple: false,
+                title: "Open project",
             });
 
             if (typeof selectedPath === 'string') {

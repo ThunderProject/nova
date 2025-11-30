@@ -16,26 +16,26 @@ import {
     IconAlertTriangle,
 } from '@tabler/icons-react';
 import {useEffect, useState} from 'react';
-import { useViewerToolsStore } from '../../stores/ViewerToolStore';
-import styles from './CTWindowingToolSettings.module.css'
 import toast from "react-hot-toast";
+import {modals} from "@mantine/modals";
+import { useViewerToolsStore } from '../../stores/ViewerToolStore';
 import {CTWindowingPresetsLoader} from "../../utils/CTWindowingPresetsLoader.ts";
 import {logger} from "../../lib/Logger.ts";
-import {modals} from "@mantine/modals";
+import styles from './CTWindowingToolSettings.module.css'
 import {PresetSelect} from "./PresetSelect.tsx";
 
 const successToast = (message: string) =>
     toast.success(message, {
-        style: {
-            background: 'var(--mantine-color-dark-6)',
-            border: '1px solid var(--mantine-color-green-5)',
-            color: 'white',
-            padding: '6px 6px',
-            borderRadius: 'var(--mantine-radius-md)',
-        },
         iconTheme: {
             primary: 'var(--mantine-color-green-5)',
             secondary: 'var(--mantine-color-dark-6)',
+        },
+        style: {
+            background: 'var(--mantine-color-dark-6)',
+            border: '1px solid var(--mantine-color-green-5)',
+            borderRadius: 'var(--mantine-radius-md)',
+            color: 'white',
+            padding: '6px 6px',
         },
     });
 
@@ -43,7 +43,7 @@ const defaultPresetWindowWidth = 400;
 const defaultPresetWindowLevel = 40;
 
 export default function CTWindowingToolSettings() {
-    const { windowSettings, setWindowSettings, addPreset, userPresets, setUserPresets, activePreset, setActivePreset } = useViewerToolsStore();
+    const { activePreset, addPreset, setActivePreset, setUserPresets, setWindowSettings, userPresets, windowSettings } = useViewerToolsStore();
     const [showAddPreset, setShowAddPreset] = useState(false);
 
     const [presetName, setPresetName] = useState('');
@@ -87,9 +87,9 @@ export default function CTWindowingToolSettings() {
         logger.info(`Adding ${presetName} to presets`)
 
         addPreset({
+            level: Number(presetLevel),
             name: presetName,
             width: Number(presetWidth),
-            level: Number(presetLevel),
         });
 
         successToast('Preset added successfully');
@@ -106,15 +106,14 @@ export default function CTWindowingToolSettings() {
 
     const handleDelete = (name: string) => {
         modals.openConfirmModal( {
-            title: 'Delete Preset',
             centered: true,
             children: (
                 <Text size="sm">
                     Are you sure you want to delete the <strong>{name}</strong> preset? This action cannot be undone.
                 </Text>
             ),
-            labels: { confirm: 'Delete', cancel: 'Cancel' },
             confirmProps: { color: 'red' },
+            labels: { cancel: 'Cancel', confirm: 'Delete' },
             onConfirm: () => {
                 const updatedPresets = { ...userPresets };
                 delete updatedPresets[name];
@@ -127,6 +126,7 @@ export default function CTWindowingToolSettings() {
                 logger.debug(`Deleted preset "${name}"`);
                 successToast(`Deleted preset "${name}"`);
             },
+            title: 'Delete Preset',
         });
     };
 
@@ -170,7 +170,7 @@ export default function CTWindowingToolSettings() {
                     step={1}
                     color="blue"
                     styles={{
-                        thumb: { width: rem(16), height: rem(16), border: '2px solid white' },
+                        thumb: { border: '2px solid white', height: rem(16), width: rem(16) },
                         track: { height: rem(4) },
                     }}
                 />
@@ -203,7 +203,7 @@ export default function CTWindowingToolSettings() {
                     color="teal"
                     style={{ flex: 1 }}
                     styles={{
-                        thumb: { width: rem(16), height: rem(16), border: '2px solid white' },
+                        thumb: { border: '2px solid white', height: rem(16), width: rem(16) },
                         track: { height: rem(4) },
                     }}
                 />
@@ -233,7 +233,7 @@ export default function CTWindowingToolSettings() {
                 </Group>
 
                 <Collapse in={showAddPreset}>
-                    <Paper withBorder shadow="sm" radius="md" p="md">
+                    <Paper shadow="sm" radius="md" p="md">
                         <Stack gap="sm">
                             <Checkbox
                                 // checked={preserve}
@@ -246,7 +246,7 @@ export default function CTWindowingToolSettings() {
                                             withArrow
                                             position="right"
                                         >
-                                            <Text span style={{ cursor: 'help', color: 'var(--mantine-color-blue-4)' }}>
+                                            <Text span style={{ color: 'var(--mantine-color-blue-4)', cursor: 'help' }}>
                                                 <IconInfoCircle
                                                     size={16}
                                                     style={{ cursor: 'help' }}
@@ -332,16 +332,16 @@ export default function CTWindowingToolSettings() {
                                     disabled={nameError || presetName === ''}
                                     className={styles.addButton}
                                     styles={{
-                                        root: {
-                                            borderColor: 'var(--mantine-color-blue-6)',
-                                            backgroundColor: nameError || presetName === '' ? 'transparent' : 'inherit',
-                                            color: 'var(--mantine-color-blue-2)',
-                                            transition: 'all 150ms ease',
-                                            opacity: nameError || presetName === '' ? 0.4 : 1,
-                                        },
                                         label: {
                                             fontWeight: 600,
                                             letterSpacing: 0.25,
+                                        },
+                                        root: {
+                                            backgroundColor: nameError || presetName === '' ? 'transparent' : 'inherit',
+                                            borderColor: 'var(--mantine-color-blue-6)',
+                                            color: 'var(--mantine-color-blue-2)',
+                                            opacity: nameError || presetName === '' ? 0.4 : 1,
+                                            transition: 'all 150ms ease',
                                         },
                                     }}
                                 >

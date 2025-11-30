@@ -1,9 +1,9 @@
 import React, {useRef, useEffect} from 'react';
-import styles from './ResizableDoubleNavbar.module.css';
 import { useUIStore } from '../../stores/uiStore.ts';
+import styles from './ResizableDoubleNavbar.module.css';
 
 export function ResizableDoubleNavbar({ children }: { children: React.ReactNode }) {
-    const { sidebarWidth, setSidebarWidth } = useUIStore();
+    const { setSidebarWidth, sidebarWidth } = useUIStore();
     const isResizing = useRef(false);
 
     useEffect(() => {

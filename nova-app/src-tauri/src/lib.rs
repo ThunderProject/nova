@@ -1,16 +1,23 @@
 mod commands;
+mod auth_state;
 
+use nova_auth::auth_service::*;
+use nova_di::ioc;
 use std::fs::create_dir_all;
-use nova::application::App;
-use tracing::{Event, Level, Subscriber};
-use crate::commands::file_system::file_system::*;
-use crate::commands::project::project::*;
+use std::sync::atomic::Ordering;
+use ::nova::application::App;
+use tracing::{Event, Level, Subscriber, info, warn};
 use crate::commands::log::*;
 use time::{OffsetDateTime, UtcOffset};
 use time::macros::format_description;
 use tracing_subscriber::{fmt};
 use tracing_subscriber::fmt::{FormatEvent, FormatFields};
 use tracing_subscriber::registry::LookupSpan;
+use crate::auth_state::auth_state::AuthState;
+use crate::commands::auth::{login, logout};
+use crate::commands::file_system::*;
+use crate::commands::project::*;
+use crate::commands::auth::is_authenticated;
 
 struct LogFormatter;
 impl<S, N> FormatEvent<S, N> for LogFormatter
@@ -37,8 +44,8 @@ where
         let thread_id = thread.id();
 
         match thread.name() {
-            Some(name) => write!(writer, "{} {:?} ", name, thread_id)?,
-            None => write!(writer, "{:?} ", thread_id)?
+            Some(name) => write!(writer, "{name} {thread_id:?} ")?,
+            None => write!(writer, "{thread_id:?} ")?
         }
 
         write!(writer, "{}: ", meta.target())?;
@@ -76,11 +83,28 @@ fn setup_logging() {
 
     builder.init();
 }
+
+async fn try_load_session(auth_state: &AuthState) {
+    match ioc::singleton::ioc().resolve::<AuthService>().try_load_session().await {
+        Ok(_) => {
+            auth_state.authenticated.store(true, Ordering::Relaxed);
+            info!("successfully loaded session")
+        }
+        Err(_) => {
+            warn!("Failed to load session")
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
+pub async fn run() {
     setup_logging();
     let _app = App::initialize();
-    
+    let auth_state = AuthState::default();
+
+    try_load_session(&auth_state).await;
+
+
     //#[cfg(debug_assertions)]
     // let devtools = tauri_plugin_devtools::init();
     let fs = tauri_plugin_fs::init();
@@ -97,6 +121,7 @@ pub fn run() {
     }
 
     builder
+        .manage(auth_state)
         .invoke_handler(tauri::generate_handler![
             read_file_to_string,
             create_dir,
@@ -111,7 +136,10 @@ pub fn run() {
             create_new_project,
             is_empty,
             join,
-            log
+            log,
+            login,
+            logout,
+            is_authenticated
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

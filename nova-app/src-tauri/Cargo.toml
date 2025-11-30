@@ -3,7 +3,7 @@ name = "nova-app"
 version = "0.1.0"
 description = "A Tauri App"
 authors = ["you"]
-edition = "2021"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -18,17 +18,38 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
-tauri-plugin-opener = "2"
+tauri = { version = "2.9.3", features = [] }
+tauri-plugin-opener = "2.5.2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri-plugin-devtools = "2.0.0"
-tauri-plugin-fs = "2.3.0"
+tauri-plugin-fs = "2.4.4"
 nova = { path = "../../nova" }
-tokio = "1.45.1"
+tokio = "1.48.0"
 tracing-subscriber = { version = "0.3.20", features = ["time"]}
-anyhow = "1.0.98"
-tauri-plugin-dialog = "2"
+anyhow = "1.0.100"
+tauri-plugin-dialog = "2.4.2"
 tracing = "0.1.41"
-time = { version = "0.3.41", features = ["local-offset"] }
+time = { version = "0.3.44", features = ["local-offset"] }
+authenticated_command = { path = "src/authenticated_command" }
+nova_project = { path = "../../crates/nova_project" }
+nova_auth = { path = "../../crates/nova_auth" }
+nova_fs = { path = "../../crates/nova_fs" }
+nova_di = { path = "../../crates/nova_di" }
+state = "0.6.0"
 
+[profile.release]
+opt-level = 3
+codegen-units = 1
+lto = "fat"
+panic = "abort"
+strip = "symbols"
+debug = false
+overflow-checks = false
+
+[build]
+rustflags = ["-C", "target-cpu=native", "link-arg=-fuse-ld=lld", "-Z", "threads=8"]
+
+[dev-dependencies]
+cargo-audit = "0.21.2"
+cargo-deny = "0.18.5"
