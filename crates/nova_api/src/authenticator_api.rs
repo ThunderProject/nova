@@ -1,3 +1,4 @@
+use reqwest::Certificate;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use zeroize::Zeroizing;
 
@@ -23,11 +24,32 @@ pub struct AuthenticatorApi {
     http_client: reqwest::Client,
 }
 
+const SERVER_CERT: &str = "-----BEGIN CERTIFICATE-----
+MIIB1DCCAVqgAwIBAgIUBlSxEB+6/TpwJSQF7HgnpIeCSHIwCgYIKoZIzj0EAwMw
+HTEbMBkGA1UEAwwSbm92YSBhdXRoZW50aWNhdG9yMB4XDTI1MTEwOTEyMjQyOVoX
+DTM1MTEwOTEyMjQyOVowHTEbMBkGA1UEAwwSbm92YSBhdXRoZW50aWNhdG9yMHYw
+EAYHKoZIzj0CAQYFK4EEACIDYgAEfXRX0wqMujvog0GIsbcrcuXunj5l4D4INxbF
+bUC6cDJnbn0BF6r2CeQqZyUxEEncHvCTYSg8LVcRPshq0vgqL/zCBGLotrOU3gVx
+Jegk3n8CoUY2DiueIg0PVtaooXkJo1swWTAaBgNVHREEEzARhwR/AAABgglsb2Nh
+bGhvc3QwDAYDVR0TAQH/BAIwADAOBgNVHQ8BAf8EBAMCB4AwHQYDVR0lBBYwFAYI
+KwYBBQUHAwEGCCsGAQUFBwMCMAoGCCqGSM49BAMDA2gAMGUCMQDfsXLo4YzW3Pth
+sRXSHbhUOpZ2xDBStZ+Wa8t6f54jbc91qwjVMrXK+zqJ/+FKv6sCMH2Qu9nS7rHQ
+eQuQykYg+XUEeQo+K7PZgKCsClTN35mm8GLDijWo6nIeE4hExH/WTA==
+-----END CERTIFICATE-----";
+
 impl AuthenticatorApi {
     pub fn new(base_url: String) -> Self {
+        let cert = Certificate::from_pem(SERVER_CERT.as_bytes())
+            .expect("Failed to parse self-signed certificate");
+
+        let http_client = reqwest::Client::builder()
+            .add_root_certificate(cert)
+            .build()
+            .expect("Failed to build reqwest client");
+
         Self {
             base_url,
-            http_client: reqwest::Client::new(),
+            http_client,
         }
     }
     pub async fn login(&self, username: &str, password: &str) -> anyhow::Result<LoginResponse> {
