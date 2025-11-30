@@ -11,6 +11,8 @@ pub struct AuthDb {
     db_pool: Option<PgPool>
 }
 
+const DATABASE_URL: &str = "postgres://postgres:admin@localhost/heimdall";
+
 #[derive(Debug, Error)]
 pub enum AuthDbError {
     #[error("failed to connect to database backend")]
@@ -26,7 +28,7 @@ pub enum AuthDbError {
 impl AuthDb {
     pub async fn new() -> Self {
         Self {
-            db_pool: PgPool::connect("postgres://postgres:admin@localhost/heimdall").await.ok(),
+            db_pool: PgPool::connect(DATABASE_URL).await.ok(),
         }
     }
 
