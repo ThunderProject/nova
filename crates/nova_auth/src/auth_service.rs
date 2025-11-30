@@ -3,7 +3,7 @@ use chrono::Duration;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use thiserror::Error;
-use tracing::{error, info, warn};
+use tracing::{error, info, warn, debug};
 use nova_api::authenticator_api::AuthenticatorApi;
 use nova_rate_limit::fixed::RateLimiter;
 
@@ -54,6 +54,8 @@ impl AuthService {
     }
 
     pub async fn try_load_session(&self) -> Result<(), LoginError> {
+        debug!("Trying to load persisted session");
+
         if self.logged_in.load(Ordering::Acquire) {
             //It does not make sense to load a session if we are already logged in
             return Err(LoginError::AlreadyLoggedIn);
@@ -79,10 +81,13 @@ impl AuthService {
             }))
         );
 
+        info!("Session successfully loaded.");
         Ok(())
     }
 
     pub async fn login(&self, username: &str, password: &str, keep_user_logged_in: bool) -> Result<(), LoginError> {
+        debug!("Trying to log in {username}");
+
         if !self.rate_limiter.lock().try_acquire() {
             return Err(LoginError::RateLimitReached);
         }
@@ -119,18 +124,25 @@ impl AuthService {
             }))
         );
 
+        info!("Successfully logged in as {username}");
         Ok(())
     }
 
     pub async fn logout(&self) -> bool {
+        debug!("Trying to logout user");
+
         let result = self.logged_in.compare_exchange(true, false, Ordering::AcqRel, Ordering::Acquire);
         if result.is_ok() {
             if SessionManager::remove_session().is_ok() {
                 self.tokens.store(None);
+                info!("User successfully logged out.");
                 return true;
             }
+
+            error!("Failed to logout user. Reason: failed to remove session");
             return false;
         }
+        error!("Failed to logout user. Reason: User ins not logged in");
         false
     }
 }
