@@ -9,7 +9,7 @@ use std::sync::atomic;
 ///
 /// All sensitive operations still require valid access/refresh tokens,
 /// which are always verified by the server. Even if this check were
-/// bypassed, no authenticated data can be accessed without proper tokens.
+/// bypassed, no authenticated/sensitive data can be accessed without proper tokens.
 #[derive(Default)]
 pub struct AuthState {
     pub authenticated: atomic::AtomicBool,

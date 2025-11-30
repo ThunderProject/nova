@@ -91,8 +91,6 @@ pub fn encrypt_str<Algo: CryptoAlgo>(plain: &str, passphrase: &str, aad: &str, p
 pub fn decrypt<Algo: CryptoAlgo>(key: &[u8], ciphertext: &[u8], nonce: &[u8], aad: &[u8]) -> Result<Vec<u8>, CryptoError> {
     let cipher = Algo::new_from_slice(key).map_err(|_| CryptoError::InvalidKeyLength)?;
 
-
-
     if nonce.len() != <Algo as aead::AeadCore>::NonceSize::to_usize() {
         return Err(CryptoError::InvalidNonce);
     }
