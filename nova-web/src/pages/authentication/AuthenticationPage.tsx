@@ -14,6 +14,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {NovaApi} from "../../nova_api/NovaApi.ts";
 import classes from "./AuthenticationPage.module.css";
+import {useAuthStore} from "../../stores/AuthStore.ts";
 
 export function AuthenticationPage() {
     const [username, seUsername] = useState("");
@@ -22,6 +23,7 @@ export function AuthenticationPage() {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
+    const { login } = useAuthStore();
 
     const handleLogin = async () => {
         setError(null);
@@ -36,6 +38,7 @@ export function AuthenticationPage() {
             return;
         }
 
+        login(username);
         navigate("/viewer")
     }
 

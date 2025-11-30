@@ -11,6 +11,7 @@ import {PageNotFound} from "./pages/not_found/PageNotFound.tsx";
 import {AuthenticationPage} from "./pages/authentication/AuthenticationPage.tsx";
 import {NovaApi} from "./nova_api/NovaApi.ts";
 import {MainTabBar} from "./components/MainTabBar/MainTabBar.tsx";
+import {useAuthStore} from "./stores/AuthStore.ts";
 
 function AuthGuard({ isAuth, children }: { isAuth: boolean; children: React.ReactNode }) {
     if(!isAuth) {
@@ -21,16 +22,16 @@ function AuthGuard({ isAuth, children }: { isAuth: boolean; children: React.Reac
 
 export default function App() {
     const [checked, setChecked] = useState(false);
-    const [isAuth, setIsAuth] = useState(false);
+    const { isAuthenticated, setAuth } = useAuthStore();
     const loc = useLocation();
 
     useEffect(() => {
         (async () => {
             const result = await NovaApi.isAuthenticated();
-            setIsAuth(result);
+            setAuth(result);
             setChecked(true);
         })();
-    }, []);
+    }, [setAuth]);
 
 
     if(!checked) {
@@ -50,13 +51,13 @@ export default function App() {
                 <Routes>
                     <Route
                         path="/login"
-                        element={ isAuth ? <Navigate to="/viewer" replace /> : <AuthenticationPage /> }
+                        element={ isAuthenticated ? <Navigate to="/viewer" replace /> : <AuthenticationPage /> }
                     />
 
                     <Route
                         path="/viewer"
                         element={
-                            <AuthGuard isAuth={isAuth}>
+                            <AuthGuard isAuth={isAuthenticated}>
                                 <Viewer />
                             </AuthGuard>
                         }
@@ -65,7 +66,7 @@ export default function App() {
                     <Route
                         path="/"
                         element={
-                            <AuthGuard isAuth={isAuth}>
+                            <AuthGuard isAuth={isAuthenticated}>
                                 <Viewer />
                             </AuthGuard>
                         }
