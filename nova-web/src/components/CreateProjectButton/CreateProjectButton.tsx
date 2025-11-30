@@ -11,12 +11,12 @@ import {
 } from '@mantine/core';
 import {IconAlertTriangle, IconFolder, IconPlus, IconX} from '@tabler/icons-react';
 import {useEffect, useState} from 'react';
-import { logger } from '../../lib/Logger.ts';
 import { open } from '@tauri-apps/plugin-dialog'
-import {FileSystem} from "../../lib/FileSystem.ts";
-import styles from './CreateProjectButton.module.css';
-import {Project} from "../../project/project.ts";
 import {modals} from "@mantine/modals";
+import { logger } from '../../lib/Logger.ts';
+import {FileSystem} from "../../lib/FileSystem.ts";
+import {Project} from "../../project/project.ts";
+import styles from './CreateProjectButton.module.css';
 
 interface OpenProjectButtonProps {
     iconSize?: number;
@@ -80,10 +80,18 @@ export function CreateProjectButton({
             });
 
             if (typeof selectedPath === 'string') {
-                logger.debug(`selected folder: ${selectedPath}`)
+                const projectPath = await FileSystem.join([selectedPath, projectName]);
+                logger.debug(`selected folder: ${projectPath}`)
                 setBaseFolder(selectedPath);
 
-                const isFolderEmpty = await FileSystem.isEmpty(selectedPath);
+                // If the combined path (selected folder + project name) doesn’t exist yet,
+                // there’s no need to check if it’s empty. The directory will be created later
+                // when the project is generated, so we can safely return early here.
+                if(!await FileSystem.exist(projectPath)) {
+                    return;
+                }
+
+                const isFolderEmpty = await FileSystem.isEmpty(projectPath);
                 setFolderNotEmpty(!isFolderEmpty);
 
                 if(!isFolderEmpty) {
@@ -111,10 +119,10 @@ export function CreateProjectButton({
     const handleImportFiles = async () => {
         try {
             const files = await open({
-                title: "Import files",
-                multiple: true,
                 directory: false,
-                filters: [{ name: 'Files', extensions: supportedFileExtensions }],
+                filters: [{ extensions: supportedFileExtensions, name: 'Files' }],
+                multiple: true,
+                title: "Import files",
             });
 
             if(files === null) {
@@ -142,56 +150,61 @@ export function CreateProjectButton({
     }
 
     const handleCreate = async () => {
-        if(!fullProjectPath) {
-            return;
-        }
-
-        if (selectedFiles !== null) {
-            logger.debug(`Selected files: ${selectedFiles}`);
-
-            const invalidFiles = selectedFiles.filter(file => {
-                const ext = file.split('.').pop()?.toLowerCase();
-                return !supportedFileExtensions.includes(ext || '');
-            })
-
-            const checkFileExist = await Promise.all(
-                selectedFiles.map((file) => FileSystem.exist(file))
-            );
-
-            const selectedFilesExist = checkFileExist.every(Boolean);
-
-            if(!selectedFilesExist || invalidFiles.length > 0) {
-                const errorMessage = 'One or more selected files do not exist, or have an unsupported file format (only .zip and .dcm are supported)';
-                setSelectedFilesError(errorMessage);
-                setShake(true);
-                setTimeout(() => setShake(false), 300);
-                logger.error(errorMessage);
+        try {
+            if(!fullProjectPath) {
                 return;
             }
+
+            if (selectedFiles !== null) {
+                logger.debug(`Selected files: ${selectedFiles}`);
+
+                const invalidFiles = selectedFiles.filter(file => {
+                    const ext = file.split('.').pop()?.toLowerCase();
+                    return !supportedFileExtensions.includes(ext || '');
+                })
+
+                const checkFileExist = await Promise.all(
+                    selectedFiles.map((file) => FileSystem.exist(file))
+                );
+
+                const selectedFilesExist = checkFileExist.every(Boolean);
+
+                if(!selectedFilesExist || invalidFiles.length > 0) {
+                    const errorMessage = 'One or more selected files do not exist, or have an unsupported file format (only .zip and .dcm are supported)';
+                    setSelectedFilesError(errorMessage);
+                    setShake(true);
+                    setTimeout(() => setShake(false), 300);
+                    logger.error(errorMessage);
+                    return;
+                }
+                else {
+                    setSelectedFilesError(null);
+                }
+            }
+
+            if(folderNotEmpty) {
+                modals.openConfirmModal({
+                    centered: true,
+                    children: (
+                        <Text size="sm">
+                            The selected folder is not empty. Some files may be overwritten or deleted.
+                            Are you sure you want to continue?
+                        </Text>
+                    ),
+                    confirmProps: { color: 'blue' },
+                    labels: { cancel: 'Cancel', confirm: 'Yes, continue' },
+                    onConfirm: async () => {
+                        await createProject();
+                    },
+                    title: 'Folder Not Empty',
+                })
+            }
             else {
-                setSelectedFilesError(null);
+                await createProject();
             }
         }
-
-        if(folderNotEmpty) {
-            modals.openConfirmModal({
-                title: 'Folder Not Empty',
-                centered: true,
-                children: (
-                    <Text size="sm">
-                        The selected folder is not empty. Some files may be overwritten or deleted.
-                        Are you sure you want to continue?
-                    </Text>
-                ),
-                labels: { confirm: 'Yes, continue', cancel: 'Cancel' },
-                confirmProps: { color: 'blue' },
-                onConfirm: async () => {
-                    await createProject();
-                },
-            })
-        }
-        else {
-            await createProject();
+        catch (error) {
+            logger.error(`Failed to create project. Reason: ${error}`);
         }
     };
 
@@ -204,9 +217,9 @@ export function CreateProjectButton({
         logger.debug(`Creating project at: ${fullProjectPath}`);
 
         await Project.createNewProject({
+            importedFiles: selectedFiles,
             projectName: projectName,
-            workingDirectory: baseFolder,
-            importedFiles: selectedFiles
+            workingDirectory: baseFolder
         })
 
         setIsCreating(false);
