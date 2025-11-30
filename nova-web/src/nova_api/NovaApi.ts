@@ -2,21 +2,26 @@ import toast from "react-hot-toast";
 import {invoke} from "@tauri-apps/api/core";
 import {logger} from "../lib/Logger.ts";
 import {ObjectUtils} from "../lib/Utils.ts";
+import {err, ok, type Result} from "../lib/Result.ts";
 
 export const NovaCommand = {
-    ReadFileToString: 'read_file_to_string',
     CreateDir: 'create_dir',
     CreateDirRecursive: 'create_dir_recursive',
+    CreateNewProject: 'create_new_project',
+    IsEmpty: 'is_empty',
+    Join: "join",
+    Log: 'log',
+    OpenProject: 'open_project',
+    PathExists: 'path_exists',
+    ReadFileToString: 'read_file_to_string',
     RemoveDir: 'remove_dir',
     RemoveDirRecursive: 'remove_dir_recursive',
     RemoveFile: 'remove_file',
     RenamePath: 'rename_path',
-    PathExists: 'path_exists',
     WriteFile: 'write_file',
-    OpenProject: 'open_project',
-    CreateNewProject: 'create_new_project',
-    IsEmpty: 'is_empty',
-    Log: 'log'
+    Login: 'login',
+    IsAuthenticated: 'is_authenticated',
+    Logout: 'logout',
 } as const;
 
 type NovaCommandMap = {
@@ -33,6 +38,10 @@ type NovaCommandMap = {
     [NovaCommand.CreateNewProject]: { params: { params: MappedProjectParams; }; result: void };
     [NovaCommand.IsEmpty]: { params: { path: string; }; result: boolean };
     [NovaCommand.Log]: { params: { level: string; msg: string }; result: void };
+    [NovaCommand.Join]: { params: { parts: string[] }; result: string };
+    [NovaCommand.Login]: { params: { username: string; password: string, keepUserLoggedIn: boolean }; result: void };
+    [NovaCommand.IsAuthenticated]: { params: {}; result: boolean };
+    [NovaCommand.Logout]: { params: {}; result: void };
 };
 
 export async function invokeNovaCommand<K extends keyof NovaCommandMap>(
@@ -88,6 +97,43 @@ export class NovaApi {
         }
         catch (error) {
             void error;
+        }
+    }
+
+    static async login(username: string, password: string, keepUserLoggedIn: boolean): Promise<Result<void>> {
+        try {
+            await invokeNovaCommand(NovaCommand.Login, { username, password, keepUserLoggedIn });
+            return ok<void>(undefined);
+        } catch (error) {
+            //guaranteed from backend
+            const msg = error as string
+
+            logger.error(`Login failed: ${msg}`);
+            return err<string>(msg);
+        }
+    }
+
+    static async isAuthenticated(): Promise<boolean> {
+        try {
+            return await invokeNovaCommand(NovaCommand.IsAuthenticated, {});
+        }
+        catch (error) {
+            void error
+            return false;
+        }
+    }
+
+    static async Logout(): Promise<boolean> {
+        try {
+            await invokeNovaCommand(NovaCommand.Logout, {});
+            return true;
+        }
+        catch (error) {
+            //guaranteed from backend
+            const msg = error as string
+
+            logger.error(`Login failed: ${msg}`);
+            return false;
         }
     }
 }

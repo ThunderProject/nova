@@ -1,0 +1,91 @@
+.wrapper {
+    height: 100dvh;
+    background-image: url("../../assets/nova_background_2.png");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    display: flex;
+    align-items: stretch;
+}
+
+.form {
+    width: 420px;
+    max-width: 100%;
+    height: 100%;
+    padding: 60px 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background: rgba(15, 15, 25, 0.6);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.3);
+}
+
+.wrapper::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, rgba(0, 0, 0, 0.6) 0%, transparent 50%);
+    z-index: 0;
+}
+.wrapper > * {
+    position: relative;
+    z-index: 1;
+}
+
+.loginButton {
+    width: 100%;
+    height: 44px;
+    background: transparent;
+    color: #d0dcff;
+    border: 1px solid #1e5fff;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    box-shadow: none;
+}
+
+.loginButton:hover {
+    background: rgba(30, 95, 255, 0.1);
+    border-color: #3b82f6;
+    color: #ffffff;
+    box-shadow: 0 0 8px rgba(30, 95, 255, 0.25);
+}
+
+.loginButton:active {
+    background: rgba(30, 95, 255, 0.2);
+    transform: scale(0.98);
+}
+
+.loginButton:disabled {
+    opacity: 0.6;
+    border-color: #333;
+    cursor: not-allowed;
+}
+
+.title {
+    font-family: "Outfit", var(--mantine-font-family), sans-serif;
+    font-size: 28px;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 36px;
+    letter-spacing: 0.4px;
+    line-height: 1.2;
+    background: linear-gradient(90deg, #4f8cff 0%, #00c6ff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 20px rgba(80, 140, 255, 0.25);
+}
+
+.subtitle {
+    font-size: 15px;
+    font-weight: 400;
+    color: rgba(200, 210, 230, 0.75);
+    text-align: center;
+    margin-top: -22px;
+    margin-bottom: 30px;
+}

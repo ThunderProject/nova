@@ -1,26 +1,15 @@
-import {Tabs, ActionIcon, Tooltip, rem} from '@mantine/core';
 import {
-    IconFileArrowRight,
-    IconDeviceFloppy,
-    IconMenu2
-} from '@tabler/icons-react';
-import classes from './MainTabBar.module.css';
-import {useEffect, useRef, useState} from "react";
-import nova_logo from '../../assets/nova_icon.png';
-import { useNavigate, useLocation } from 'react-router-dom';
-import {OpenProjectButton} from "../OpenProjectButton.tsx";
-import {Project} from "../../project/project.ts";
-import {CreateProjectButton} from "../CreateProjectButton/CreateProjectButton.tsx";
+    Group,
+    Stack,
+} from "@mantine/core";
+import { useEffect, useRef, useState } from "react";
+import {ProjectToolbar} from "../ProjectToolbar/ProjectToolbar.tsx";
+import { UserMenu } from "../UserMenu/UserMenu.tsx";
+import {NavigationTabs} from "../NavigationTabs/NavigationTabs.tsx";
+import classes from "./MainTabBar.module.css";
 
-const tabs = [
-    { label: 'Patient data', path: '/patients' },
-    { label: 'Viewer', path: '/viewer' },
-    { label: 'Export', path: '/export' },
-];
 
 export function MainTabBar() {
-    const iconSize = 24;
-    const logoSize = 24;
     const [createProjectModalOpen, setCreateProjectModalOpen] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -33,118 +22,33 @@ export function MainTabBar() {
         };
 
         if (menuOpen) {
-            document.addEventListener('mousedown', handleClickOutside);
+            document.addEventListener("mousedown", handleClickOutside);
         }
         else {
-            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener("mousedown", handleClickOutside);
         }
 
         return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener("mousedown", handleClickOutside);
         };
     }, [createProjectModalOpen, menuOpen]);
 
-    const navigate = useNavigate();
-    const location = useLocation();
-
-    const currentTab = tabs.find((tab) => location.pathname.startsWith(tab.path))?.label || 'Patient data';
-    const handleTabChange = (label: string | null) => {
-        if(!label) {
-            return;
-        }
-
-        const tab = tabs.find((tab) => tab.label === label);
-        if(tab) {
-            navigate(tab.path);
-        }
-    }
 
     return (
-        <div className={classes.header}>
-            {/* Toolbar Row */}
-            <div className={classes.toolbarRow}>
-                <img src={nova_logo} alt="Nova logo" style={{width: logoSize, height: logoSize, marginLeft: 4, marginRight: 8}}/>
-                {menuOpen ? (
-                    <div ref={menuRef} style={{display: 'inline-flex', gap: rem(8)}}>
-                        <CreateProjectButton
-                            iconSize={iconSize}
-                            onClicked={() => {}}
-                            onClosed={() => setMenuOpen(false) }
-                            modalOpen={createProjectModalOpen}
-                            setModalOpen={setCreateProjectModalOpen}
-                        >
-                        </CreateProjectButton>
+        <Stack gap={0} className={classes.header}>
+            <Group className={classes.toolbarRow} align="center" justify="space-between">
+                <ProjectToolbar
+                    iconSize={24}
+                    menuOpen={menuOpen}
+                    createProjectModalOpen={createProjectModalOpen}
+                    setMenuOpen={setMenuOpen}
+                    setCreateProjectModalOpen={setCreateProjectModalOpen}
+                    menuRef={menuRef}
+                />
 
-                        <OpenProjectButton
-                            iconSize={iconSize}
-                            onClicked={ () => setMenuOpen(false) }
-                            onFileSelected={async (file) => {
-                                await Project.open(file)
-                            }}
-                        >
-                        </OpenProjectButton>
-
-                        <Tooltip label="Save project">
-                            <ActionIcon
-                                variant="subtle"
-                                size="lg"
-                                color="gray"
-                                onClick={() => {
-                                    setMenuOpen(false);
-                                }}
-                            >
-                                <IconDeviceFloppy size={iconSize}/>
-                            </ActionIcon>
-                        </Tooltip>
-
-                        <Tooltip label="Export project">
-                            <ActionIcon
-                                variant="subtle"
-                                size="lg"
-                                color="gray"
-                                onClick={() => {
-                                    setMenuOpen(false);
-                                }}
-                            >
-                                <IconFileArrowRight size={iconSize}/>
-                            </ActionIcon>
-                        </Tooltip>
-                    </div>
-
-                ) : (
-                    <ActionIcon
-                        variant="subtle"
-                        size="lg"
-                        color="gray"
-                        onClick={() => setMenuOpen(true)}
-                    >
-                        <IconMenu2 size={iconSize}/>
-                    </ActionIcon>
-                )}
-            </div>
-
-            {/* Tabs */}
-            <div className={classes.tabsRow}>
-                <div className={classes.tabsIndent}>
-                    <Tabs
-                        value={currentTab}
-                        onChange={handleTabChange}
-                        variant="outline"
-                        classNames={{
-                            list: classes.tabsList,
-                            tab: classes.tab,
-                        }}
-                    >
-                        <Tabs.List>
-                            {tabs.map((tab) => (
-                                <Tabs.Tab key={tab.label} value={tab.label}>
-                                    {tab.label}
-                                </Tabs.Tab>
-                            ))}
-                        </Tabs.List>
-                    </Tabs>
-                </div>
-            </div>
-        </div>
+                <NavigationTabs />
+                <UserMenu />
+            </Group>
+        </Stack>
     );
 }

@@ -43,7 +43,7 @@ describe("ObjectUtils", () => {
         });
 
         it("should preserve values", () => {
-            const input = { keyOne: 123, keyTwo: [1, 2, 3], keyThree: { nested: "yes" } };
+            const input = { keyOne: 123, keyThree: { nested: "yes" }, keyTwo: [1, 2, 3] };
             const result = ObjectUtils.snakifyObject(input);
 
             expect(result.key_one).toBe(123);

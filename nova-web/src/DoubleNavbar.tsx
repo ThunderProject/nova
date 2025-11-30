@@ -8,7 +8,6 @@ import {
 import { Title, Tooltip, UnstyledButton } from '@mantine/core';
 import classes from './DoubleNavbar.module.css';
 import novaLogo from './assets/nova_icon.png';
-
 import { useViewerToolsStore } from './stores/ViewerToolStore';
 import type { ViewerTool } from './stores/ViewerToolStore';
 import CTWindowingToolSettings from "./components/CTWindowingToolSettings/CTWindowingToolSettings.tsx";

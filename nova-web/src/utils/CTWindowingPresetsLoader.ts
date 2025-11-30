@@ -24,8 +24,8 @@ export class CTWindowingPresetsLoader {
             //just take the first value
             return Object.entries(result.data).reduce((acc, [key, val]) => {
                 acc[key] = {
-                    width: val.width[0],
-                    level: val.level[0]
+                    level: val.level[0],
+                    width: val.width[0]
                 };
 
                 return acc;
