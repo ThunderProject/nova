@@ -3,7 +3,6 @@ mod auth_state;
 
 use nova_auth::auth_service::*;
 use nova_di::ioc;
-use std::fs::create_dir_all;
 use std::sync::atomic::Ordering;
 use ::nova::application::App;
 use tracing::{Event, Level, Subscriber, info, warn};
@@ -13,6 +12,7 @@ use time::macros::format_description;
 use tracing_subscriber::{fmt};
 use tracing_subscriber::fmt::{FormatEvent, FormatFields};
 use tracing_subscriber::registry::LookupSpan;
+use nova_fs::folder_resolver::FolderResolver;
 use crate::auth_state::auth_state::AuthState;
 use crate::commands::auth::{login, logout};
 use crate::commands::file_system::*;
@@ -57,16 +57,12 @@ where
 }
 
 fn setup_logging() {
-    let exe_path = std::env::current_exe().expect("Failed to get current exe path");
-    let log_dir = exe_path.parent().unwrap().join("logs");
-
-    create_dir_all(&log_dir).expect("Failed to create logs directory");
-
-    let log_path = log_dir.join("nova.log");
+    let log_dir = FolderResolver::resolve_log_dir();
+    let log_file = log_dir.join("nova.log");
 
     let writer = {
         use std::{fs::File, sync::Mutex};
-        let log_file = File::create(&log_path).expect("Failed to create the log file");
+        let log_file = File::create(&log_file).expect("Failed to create the log file");
         Mutex::new(log_file)
     };
 

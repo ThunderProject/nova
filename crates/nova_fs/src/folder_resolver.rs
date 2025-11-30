@@ -1,26 +1,21 @@
-use std::env;
 use std::path::PathBuf;
 use std::sync::{LazyLock};
-use tracing::{error, info};
+use tracing::{error, debug};
 
 pub struct FolderResolver {}
 
 static ASSETS_DIR: LazyLock<Result<PathBuf, std::io::Error>> = LazyLock::new(|| {
-    let exe_path = env::current_exe()?;
-    let exe_dir = exe_path.parent().ok_or_else(|| {
-        std::io::Error::other("Failed to get executable directory")
-    })?;
+    let mut base = dirs::data_dir()
+        .ok_or_else(|| std::io::Error::other("Failed to locate data directory"))?;
 
-    info!("Using executable directory: {}", exe_dir.display());
-    let assets_path = exe_dir.join("assets");
+    base.push("nova");
+    base.push("assets");
 
-    match assets_path.is_dir() {
-        true => Ok(assets_path),
-        false => Err(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            format!("Assets directory not found at {:?}", assets_path),
-        ))
-    }
+    std::fs::create_dir_all(&base)?;
+
+    debug!("Assets directory: {:?}", base);
+
+    Ok(base)
 });
 
 static SESSION_DIR: LazyLock<Result<PathBuf, std::io::Error>> = LazyLock::new(|| {
@@ -30,7 +25,23 @@ static SESSION_DIR: LazyLock<Result<PathBuf, std::io::Error>> = LazyLock::new(||
     base.push("nova");
     base.push("auth");
 
+    debug!("Session directory: {:?}", base);
+
     std::fs::create_dir_all(&base)?;
+    Ok(base)
+});
+
+static LOG_DIR: LazyLock<Result<PathBuf, std::io::Error>> = LazyLock::new(|| {
+    let mut base = dirs::data_dir()
+        .ok_or_else(|| std::io::Error::other("Failed to locate data directory"))?;
+
+    base.push("nova");
+    base.push("logs");
+
+    std::fs::create_dir_all(&base)?;
+
+    debug!("Assets directory: {:?}", base);
+
     Ok(base)
 });
 
@@ -47,6 +58,16 @@ impl FolderResolver {
 
     pub fn resolve_session_dir() -> PathBuf {
         match &*SESSION_DIR {
+            Ok(path) => path.clone(),
+            Err(err) => {
+                error!("Failed to resolve session directory: {:?}", err);
+                panic!("Failed to resolve session directory");
+            }
+        }
+    }
+
+    pub fn resolve_log_dir() -> PathBuf {
+        match &*LOG_DIR {
             Ok(path) => path.clone(),
             Err(err) => {
                 error!("Failed to resolve session directory: {:?}", err);
