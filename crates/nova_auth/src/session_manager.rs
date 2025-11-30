@@ -82,6 +82,27 @@ impl SessionManager {
         Ok(token)
     }
 
+    pub fn remove_session() -> anyhow::Result<()> {
+        let file_path = SessionManager::session_path();
+
+        if file_path.exists() {
+            match fs::remove_file(&file_path) {
+                Ok(_) => {},
+                Err(err) => {
+                    debug!("Failed to remove session file. Reason: {err}");
+                    anyhow::bail!(err);
+                }
+            }
+            debug!("Removed session file: {:?}", &file_path);
+        }
+        else {
+            debug!("No session file found. Nothing to remove.");
+        }
+
+        debug!("Session successfully removed.");
+        Ok(())
+    }
+
     fn store_keyring_password(password: &str) -> anyhow::Result<()> {
         Entry::new(SERVICE_NAME, USER_NAME)?.set_password(password)?;
         debug!("Stored password to keyring entry. service={SERVICE_NAME}, user={USER_NAME}");

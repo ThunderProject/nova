@@ -21,6 +21,7 @@ export const NovaCommand = {
     WriteFile: 'write_file',
     Login: 'login',
     IsAuthenticated: 'is_authenticated',
+    Logout: 'logout',
 } as const;
 
 type NovaCommandMap = {
@@ -40,6 +41,7 @@ type NovaCommandMap = {
     [NovaCommand.Join]: { params: { parts: string[] }; result: string };
     [NovaCommand.Login]: { params: { username: string; password: string, keepUserLoggedIn: boolean }; result: void };
     [NovaCommand.IsAuthenticated]: { params: {}; result: boolean };
+    [NovaCommand.Logout]: { params: {}; result: void };
 };
 
 export async function invokeNovaCommand<K extends keyof NovaCommandMap>(
@@ -117,6 +119,20 @@ export class NovaApi {
         }
         catch (error) {
             void error
+            return false;
+        }
+    }
+
+    static async Logout(): Promise<boolean> {
+        try {
+            await invokeNovaCommand(NovaCommand.Logout, {});
+            return true;
+        }
+        catch (error) {
+            //guaranteed from backend
+            const msg = error as string
+
+            logger.error(`Login failed: ${msg}`);
             return false;
         }
     }

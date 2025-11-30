@@ -3,7 +3,7 @@ use authenticated_command::authenticated_command;
 use nova_auth::auth_service::*;
 use std::sync::atomic;
 use tauri::State;
-use tracing::debug;
+use tracing::{debug, error, info};
 use nova_di::ioc;
 
 #[tauri::command]
@@ -38,11 +38,13 @@ pub async fn is_authenticated() -> Result<bool, String> {
 #[tauri::command]
 pub async fn logout(state: State<'_, AuthState>) -> Result<(), String> {
     if !state.authenticated.load(atomic::Ordering::Relaxed) {
+        error!("Failed to logout. Reason: user not logged in.");
         return Err("Access denied.".to_string());
     }
 
     let auth = ioc::singleton::ioc().resolve::<AuthService>();
     if auth.logout().await {
+        info!("User successfully logged out.");
         state.authenticated.store(true, atomic::Ordering::Relaxed);
     }
     Ok(())

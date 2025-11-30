@@ -3,7 +3,7 @@ use chrono::Duration;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use thiserror::Error;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 use nova_api::authenticator_api::AuthenticatorApi;
 use nova_rate_limit::fixed::RateLimiter;
 
@@ -125,8 +125,11 @@ impl AuthService {
     pub async fn logout(&self) -> bool {
         let result = self.logged_in.compare_exchange(true, false, Ordering::AcqRel, Ordering::Acquire);
         if result.is_ok() {
-            self.tokens.store(None);
-            return true;
+            if SessionManager::remove_session().is_ok() {
+                self.tokens.store(None);
+                return true;
+            }
+            return false;
         }
         false
     }
