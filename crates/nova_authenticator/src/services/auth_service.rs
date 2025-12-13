@@ -59,7 +59,7 @@ impl Auth {
 
         match Argon2::default().verify_password(password.as_ref(), &pw_hash) {
             Ok(_) => {
-                debug!("Successfully verified password for user {username}");
+                debug!("Successfully verified password for user");
 
                 let vault = ioc().resolve::<Vault>();
                 let jwt_secrets = vault.fetch_jwt_secrets().await?;
