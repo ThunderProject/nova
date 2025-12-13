@@ -73,7 +73,7 @@ impl Auth {
 
                 match jwt.unwrap().create_tokens(subject) {
                     Some(token) => {
-                        debug!("Successfully logged in as {username}");
+                        debug!("Successfully logged in");
                         Ok(token)
                     },
                     None => {
