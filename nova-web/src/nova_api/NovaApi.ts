@@ -132,7 +132,7 @@ export class NovaApi {
             //guaranteed from backend
             const msg = error as string
 
-            logger.error(`Login failed: ${msg}`);
+            logger.error(`Logout failed: ${msg}`);
             return false;
         }
     }
