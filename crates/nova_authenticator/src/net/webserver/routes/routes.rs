@@ -7,6 +7,10 @@ use crate::net::webserver::webserver::AppState;
 pub fn api_router(state: Arc<AppState>) -> Router {
     Router::new()
         .route(
+            "/signup",
+            post(auth::handle_signup).with_state(state.clone()),
+        )
+        .route(
             "/login",
             post(auth::handle_login).with_state(state.clone()),
         )

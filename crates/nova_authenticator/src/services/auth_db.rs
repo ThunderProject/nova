@@ -1,10 +1,13 @@
+use aead::OsRng;
+use argon2::{Argon2, PasswordHasher};
 use sqlx::PgPool;
 use thiserror::Error;
 use tracing::{error, info};
+use argon2::password_hash::SaltString;
 
 pub struct User {
     pub username: String,
-    pub password: String,
+    pub password_hash: String,
 }
 
 pub struct AuthDb {
@@ -23,6 +26,12 @@ pub enum AuthDbError {
 
     #[error("user not found")]
     UserNotFound,
+
+    #[error("user already exists")]
+    UserAlreadyExists,
+
+    #[error("failed to hash password")]
+    PasswordHashError,
 }
 
 impl AuthDb {
@@ -49,11 +58,51 @@ impl AuthDb {
         match row {
             Some((stored_user, stored_password)) => {
                 info!("Successfully fetched user from database!");
-                Ok(User { username: stored_user, password: stored_password })
+                Ok(User { username: stored_user, password_hash: stored_password })
             }
             None => {
                 error!("User with username \"{username}\" not found");
                 Err(AuthDbError::UserNotFound)
+            }
+        }
+    }
+
+    pub async fn create_user(&self, username: &str, password: &str) -> Result<(), AuthDbError> {
+        info!("Trying to create new user \"{}\"", username);
+
+        let pool = self.db_pool.as_ref().ok_or(AuthDbError::DatabaseConnectionFailed)?;
+
+        let salt = SaltString::generate(&mut OsRng);
+        let argon2 = Argon2::default();
+
+        let pw_hash = argon2
+            .hash_password(password.as_bytes(), &salt)
+            .map_err(|err| {
+                error!("Failed to create password hash: {err}");
+                AuthDbError::PasswordHashError
+            })?
+            .to_string();
+
+        let result = sqlx::query("INSERT INTO users (username, password) VALUES ($1, $2)")
+            .bind(username)
+            .bind(&pw_hash)
+            .execute(pool)
+            .await;
+
+        match result {
+            Ok(_) => {
+                info!("Successfully created user \"{}\"", username);
+                Ok(())
+            }
+            Err(err) => {
+                // Check for unique constraint violation (Postgres error code 23505)
+                if let Some(db_err) = err.as_database_error() && db_err.code().as_deref() == Some("23505") {
+                    error!("User \"{}\" already exists", username);
+                    return Err(AuthDbError::UserAlreadyExists);
+                }
+
+                error!("Failed to execute SQL query when inserting user. Reason: {err}");
+                Err(AuthDbError::QueryExecutionFailed)
             }
         }
     }

@@ -18,3 +18,4 @@ nova_rate_limit = { path = "../nova_rate_limit" }
 nova_api = { path = "../nova_api" }
 nova_crypto = { path = "../nova_crypto" }
 nova_fs = { path = "../nova_fs" }
+reqwest = "0.13.1"
