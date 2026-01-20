@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use thiserror::Error;
 use tracing::{error, info, warn, debug};
-use nova_api::authenticator_api::AuthenticatorApi;
+use nova_api::authenticator_api::{AuthApiError, AuthenticatorApi};
 use nova_rate_limit::fixed::RateLimiter;
 
 use crate::session_manager::SessionManager;
@@ -28,6 +28,9 @@ pub enum LoginError {
 
     #[error("Another login attempt completed first")]
     ConcurrentLogin,
+
+    #[error("User already exists")]
+    UserAlreadyExists,
 }
 
 pub struct AuthService {
@@ -82,6 +85,23 @@ impl AuthService {
         );
 
         info!("Session successfully loaded.");
+        Ok(())
+    }
+
+    pub async fn signup(&self, username: &str, password: &str) -> Result<(), LoginError> {
+        debug!("Trying to signup {username}");
+
+        if !self.rate_limiter.lock().try_acquire() {
+            return Err(LoginError::RateLimitReached);
+        }
+
+        self.auth_api.signup(username, password).await.map_err(|e| match e {
+            AuthApiError::HttpStatus(reqwest::StatusCode::CONFLICT) => LoginError::UserAlreadyExists,
+            AuthApiError::HttpStatus(reqwest::StatusCode::TOO_MANY_REQUESTS) => LoginError::RateLimitReached,
+            _ => LoginError::FailedToLogin(e.to_string())
+        })?;
+
+        info!("Successfully signed up {username}");
         Ok(())
     }
 

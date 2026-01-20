@@ -16,12 +16,10 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    background: rgba(15, 15, 25, 0.6);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
-
-    box-shadow: 0 0 40px rgba(0, 0, 0, 0.3);
+    background: rgba(15, 15, 25, 0.55);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.32);
 }
 
 .wrapper::before {

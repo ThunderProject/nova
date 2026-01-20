@@ -24,6 +24,15 @@ pub struct AuthenticatorApi {
     http_client: reqwest::Client,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum AuthApiError {
+    #[error("http status {0}")]
+    HttpStatus(reqwest::StatusCode),
+
+    #[error(transparent)]
+    Transport(#[from] reqwest::Error),
+}
+
 const SERVER_CERT: &str = "-----BEGIN CERTIFICATE-----
 MIIB1DCCAVqgAwIBAgIUBlSxEB+6/TpwJSQF7HgnpIeCSHIwCgYIKoZIzj0EAwMw
 HTEbMBkGA1UEAwwSbm92YSBhdXRoZW50aWNhdG9yMB4XDTI1MTEwOTEyMjQyOVoX
@@ -52,6 +61,21 @@ impl AuthenticatorApi {
             http_client,
         }
     }
+
+    pub async fn signup(&self, username: &str, password: &str) -> Result<(), AuthApiError> {
+        let url = format!("{}/signup", self.base_url);
+
+        let zeroized_pw = Zeroizing::new(password.to_owned());
+
+        let body = LoginRequest {
+            username: username.to_owned(),
+            password: zeroized_pw.clone(),
+        };
+
+        self.post::<LoginRequest, ()>(&url, &body).await?;
+        Ok(())
+    }
+
     pub async fn login(&self, username: &str, password: &str) -> anyhow::Result<LoginResponse> {
         let url = format!("{}/login", self.base_url);
 
@@ -77,16 +101,22 @@ impl AuthenticatorApi {
         Ok(response)
     }
 
-    async fn post<Body: Serialize + ?Sized, Response: DeserializeOwned>(&self, url: &str, body: &Body) -> anyhow::Result<Response> {
+    async fn post<Body: Serialize + ?Sized, Response: DeserializeOwned>(
+        &self,
+        url: &str,
+        body: &Body
+    ) -> Result<Response, AuthApiError> {
         let response = self.http_client
             .post(url)
             .json(body)
             .send()
-            .await?
-            .error_for_status()?
-            .json::<Response>()
             .await?;
 
-        Ok(response)
+        let status = response.status();
+        if !status.is_success() {
+            return Err(AuthApiError::HttpStatus(status));
+        }
+
+        Ok(response.json::<Response>().await?)
     }
 }
