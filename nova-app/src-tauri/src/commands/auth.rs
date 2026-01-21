@@ -3,7 +3,7 @@ use authenticated_command::authenticated_command;
 use nova_auth::auth_service::*;
 use std::sync::atomic;
 use tauri::State;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use nova_di::ioc;
 
 #[tauri::command]
@@ -14,6 +14,23 @@ pub async fn signup(username: String, password: String) -> Result<(), String> {
         Ok(()) => Ok(()),
         Err(err) => {
             debug!("Signup failed: {err}");
+
+            // Signup could fail after the account has been successfully created on the server.
+            // (consider e.g., the scenario where the account is created on the server but the client fails to parse the response, etc)
+            // Let's launch a background task to (try) delete the account in case the signup failed.
+            let username_cleanup = username.clone();
+            tokio::spawn(async move {
+                let auth = ioc::singleton::ioc().resolve::<AuthService>();
+                let cleanup_task = async {
+                    //delete_account will fail if the account does not exist, we don't care about that
+                    auth.delete_account(&username_cleanup).await
+                };
+
+                // What to do here? The account creation failed from the user's POV, but it might have succeeded from the server's POV.
+                if let Err(_elapsed) = tokio::time::timeout(std::time::Duration::from_secs(10), cleanup_task).await {
+                    warn!("Failed to delete account after signup failed.");
+                }
+            });
 
             // Do not provide any sensitive information in this error message because the frontend might display it to the user.
             let error_message = match err {
