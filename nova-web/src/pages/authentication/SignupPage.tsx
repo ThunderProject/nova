@@ -1,13 +1,13 @@
 import {
     Alert,
     Anchor,
-    Button, Group,
+    Button, Center, Group,
     Loader,
     Paper,
     PasswordInput,
     Text,
     TextInput,
-    Title,
+    Title, Transition,
 } from "@mantine/core";
 import {useEffect, useRef, useState} from "react";
 import { useNavigate } from "react-router-dom";
@@ -156,18 +156,43 @@ export function SignupPage() {
                         mt="sm"
                         variant="light"
                     >
-                        Account created. Redirecting to login in {countdown}…
+                        <Text>
+                            Account created. Redirecting to login in
+                        </Text>
+                        <Center mt={6} mb={6}>
+                            <Transition
+                                mounted
+                                transition="pop"
+                                duration={180}
+                                timingFunction="ease"
+                                key={countdown}
+                            >
+                                {(styles) => (
+                                    <Text
+                                        style={styles}
+                                        fw={500}
+                                        fz={32}
+                                        lh={1}
+                                    >
+                                        {countdown}
+                                    </Text>
+                                )}
+                            </Transition>
+                        </Center>
                         <br />
-                        <Anchor
-                            href="#"
-                            fw={500}
-                            onClick={(event) => {
-                                event.preventDefault();
-                                navigateToLogin();
-                            }}
-                        >
-                           Click here to login now
-                        </Anchor>
+
+                        <Center>
+                            <Anchor
+                                href="#"
+                                fw={500}
+                                onClick={(event) => {
+                                    event.preventDefault();
+                                    navigateToLogin();
+                                }}
+                            >
+                               Click here to login now
+                            </Anchor>
+                        </Center>
                     </Alert>
                 )}
 
