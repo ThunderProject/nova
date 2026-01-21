@@ -12,6 +12,7 @@ import {AuthenticationPage} from "./pages/authentication/AuthenticationPage.tsx"
 import {NovaApi} from "./nova_api/NovaApi.ts";
 import {MainTabBar} from "./components/MainTabBar/MainTabBar.tsx";
 import {useAuthStore} from "./stores/AuthStore.ts";
+import {SignupPage} from "./pages/authentication/SignupPage.tsx";
 
 function AuthGuard({ isAuth, children }: { isAuth: boolean; children: React.ReactNode }) {
     if(!isAuth) {
@@ -70,6 +71,11 @@ export default function App() {
                                 <Viewer />
                             </AuthGuard>
                         }
+                    />
+
+                    <Route
+                        path="/signup"
+                        element={<SignupPage/>}
                     />
 
                     <Route path="*" element={<PageNotFound />} />
