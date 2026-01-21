@@ -1,3 +1,4 @@
+use std::any::TypeId;
 use reqwest::Certificate;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use zeroize::Zeroizing;
@@ -31,6 +32,9 @@ pub enum AuthApiError {
 
     #[error(transparent)]
     Transport(#[from] reqwest::Error),
+
+    #[error(transparent)]
+    Serializing(#[from] serde_json::Error),
 }
 
 const SERVER_CERT: &str = "-----BEGIN CERTIFICATE-----
@@ -101,7 +105,7 @@ impl AuthenticatorApi {
         Ok(response)
     }
 
-    async fn post<Body: Serialize + ?Sized, Response: DeserializeOwned>(
+    async fn post<Body: Serialize + ?Sized, Response: DeserializeOwned + 'static>(
         &self,
         url: &str,
         body: &Body
@@ -115,6 +119,12 @@ impl AuthenticatorApi {
         let status = response.status();
         if !status.is_success() {
             return Err(AuthApiError::HttpStatus(status));
+        }
+
+        if TypeId::of::<Response>() == TypeId::of::<()>() {
+            let _ = response.bytes().await?;
+            let null: Response = serde_json::from_str("null").map_err(AuthApiError::Serializing)?;
+            return Ok(null);
         }
 
         Ok(response.json::<Response>().await?)
