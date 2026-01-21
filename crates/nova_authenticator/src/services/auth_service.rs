@@ -1,6 +1,6 @@
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use thiserror::Error;
-use tracing::{error};
+use tracing::{error, info};
 use tracing::log::debug;
 use nova_di::ioc::singleton::ioc;
 use crate::{auth};
@@ -50,8 +50,10 @@ impl Auth {
     }
 
     pub async fn login(&self, username: &String, password: &String) -> Result<JwtTokens, LoginFailureReason> {
+        info!("Trying to log in user");
+
         let usr = self.auth_db.fetch_user(username).await?;
-        let pw_hash = PasswordHash::new(&usr.password)
+        let pw_hash = PasswordHash::new(&usr.password_hash)
             .map_err(|err| {
                 error!("Failed to create password hash: {err}");
                 LoginFailureReason::PasswordHashError
@@ -87,6 +89,11 @@ impl Auth {
                 Err(LoginFailureReason::WrongCredentials)
             }
         }
+    }
+
+    pub async fn signup(&self, username: &str, password: &str) -> Result<(), LoginFailureReason>  {
+        self.auth_db.create_user(username, password).await?;
+        Ok(())
     }
 
     pub async fn refresh_tokens(&self, refresh_token: &str) -> Result<JwtTokens, RefreshFailureReason> {
