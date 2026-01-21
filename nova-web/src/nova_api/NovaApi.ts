@@ -22,6 +22,7 @@ export const NovaCommand = {
     Login: 'login',
     IsAuthenticated: 'is_authenticated',
     Logout: 'logout',
+    SignUp: 'signup',
 } as const;
 
 type NovaCommandMap = {
@@ -40,6 +41,7 @@ type NovaCommandMap = {
     [NovaCommand.Log]: { params: { level: string; msg: string }; result: void };
     [NovaCommand.Join]: { params: { parts: string[] }; result: string };
     [NovaCommand.Login]: { params: { username: string; password: string, keepUserLoggedIn: boolean }; result: void };
+    [NovaCommand.SignUp]: { params: { username: string; password: string }; result: void };
     [NovaCommand.IsAuthenticated]: { params: {}; result: boolean };
     [NovaCommand.Logout]: { params: {}; result: void };
 };
@@ -75,7 +77,7 @@ export class NovaApi {
             return await invokeNovaCommand(NovaCommand.OpenProject, {file: file});
         }
         catch (error) {
-            const errMsg: string = `Failed to open project "${file}". Reason: ${error}`;
+            const errMsg: string = `Failed to open project "${file}". Reason: ${NovaApi.parseError(error)}`;
             logger.error(errMsg);
         }
     }
@@ -86,7 +88,7 @@ export class NovaApi {
             return await invokeNovaCommand(NovaCommand.CreateNewProject, {params: rustParams});
         }
         catch (error) {
-            const errMsg: string = `Failed to create new project. Reason: ${error}`;
+            const errMsg: string = `Failed to create new project. Reason: ${NovaApi.parseError(error)}`;
             logger.error(errMsg);
         }
     }
@@ -105,8 +107,7 @@ export class NovaApi {
             await invokeNovaCommand(NovaCommand.Login, { username, password, keepUserLoggedIn });
             return ok<void>(undefined);
         } catch (error) {
-            //guaranteed from backend
-            const msg = error as string
+            const msg = NovaApi.parseError(error);
 
             logger.error(`Login failed: ${msg}`);
             return err<string>(msg);
@@ -129,11 +130,39 @@ export class NovaApi {
             return true;
         }
         catch (error) {
-            //guaranteed from backend
-            const msg = error as string
+            const msg = NovaApi.parseError(error);
 
             logger.error(`Logout failed: ${msg}`);
             return false;
         }
     }
+
+    static async SignUp(username: string, password: string): Promise<Result<void>> {
+        try {
+            await invokeNovaCommand(NovaCommand.SignUp, { username, password });
+            return ok<void>(undefined);
+        } catch (error) {
+            const msg = NovaApi.parseError(error);
+
+            logger.error(`Login failed: ${msg}`);
+            return err<string>(msg);
+        }
+    }
+
+    private static parseError = (error: unknown): string => {
+        if(error instanceof Error) {
+            return error.message || String(error);
+        }
+
+        if(typeof error === 'string') {
+            return error as string;
+        }
+
+        try {
+            return JSON.stringify(error);
+        }
+        catch {
+            return String(error);
+        }
+    };
 }
