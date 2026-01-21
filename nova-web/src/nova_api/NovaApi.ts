@@ -144,7 +144,7 @@ export class NovaApi {
         } catch (error) {
             const msg = NovaApi.parseError(error);
 
-            logger.error(`Login failed: ${msg}`);
+            logger.error(`SignUp failed: ${msg}`);
             return err<string>(msg);
         }
     }

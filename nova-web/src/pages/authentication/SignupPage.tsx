@@ -1,8 +1,7 @@
 import {
     Alert,
     Anchor,
-    Button, Checkbox,
-    Group,
+    Button, Group,
     Loader,
     Paper,
     PasswordInput,
@@ -10,42 +9,62 @@ import {
     TextInput,
     Title,
 } from "@mantine/core";
-import { useState } from "react";
+import {useEffect, useRef, useState} from "react";
 import { useNavigate } from "react-router-dom";
 import { NovaApi } from "../../nova_api/NovaApi.ts";
 import classes from "./SignupPage.module.css";
-import { useAuthStore } from "../../stores/AuthStore.ts";
 
 export function SignupPage() {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
-    const [keepUserLoggedIn, setKeepUserLoggedIn] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState(false);
+    const [countdown, setCountdown] = useState<number>(3);
     const [loading, setLoading] = useState(false);
 
     const navigate = useNavigate();
-    const { login } = useAuthStore();
 
-    const handleLogin = async () => {
-        setError(null);
-        setLoading(true);
+    const redirectTimeoutRef = useRef<number | null>(null);
+    const countdownIntervalRef = useRef<number | null>(null);
 
-        const loginResult = await NovaApi.login(username, password, keepUserLoggedIn);
-
-        setLoading(false);
-
-        if(loginResult.hasError()) {
-            setError(loginResult.error)
-            return;
+    const clearRedirectTimers = () => {
+        if (redirectTimeoutRef.current !== null) {
+            window.clearTimeout(redirectTimeoutRef.current);
+            redirectTimeoutRef.current = null;
         }
+        if (countdownIntervalRef.current !== null) {
+            window.clearInterval(countdownIntervalRef.current);
+            countdownIntervalRef.current = null;
+        }
+    };
 
-        login(username);
-        navigate("/viewer")
-    }
+    useEffect(() => {
+        return () => clearRedirectTimers();
+    }, []);
+
+    const navigateToLogin = () => {
+        clearRedirectTimers();
+        navigate("/login");
+    };
+
+    const startRedirectCountdown = () => {
+        clearRedirectTimers();
+        setCountdown(3);
+
+        countdownIntervalRef.current = window.setInterval(() => {
+            setCountdown((countdown) => (countdown > 1 ? countdown - 1 : 1));
+        }, 1000);
+
+        redirectTimeoutRef.current = window.setTimeout(() => {
+            navigateToLogin();
+        }, 3000);
+    };
 
     const handleSignup = async () => {
+        clearRedirectTimers();
         setError(null);
+        setSuccess(false);
 
         if(!username) {
             setError("Username cannot be empty");
@@ -64,14 +83,17 @@ export function SignupPage() {
 
         setLoading(true);
         const result = await NovaApi.SignUp(username, password)
-        setLoading(false);
 
         if (result.hasError()) {
+            setLoading(false);
             setError(result.error);
             return;
         }
 
-        await handleLogin();
+        setLoading(false);
+        setError(null);
+        setSuccess(true);
+        startRedirectCountdown();
     };
 
     return (
@@ -91,6 +113,7 @@ export function SignupPage() {
                     radius="md"
                     value={username}
                     onChange={(e) => setUsername(e.currentTarget.value)}
+                    disabled={loading || success}
                 />
 
                 <PasswordInput
@@ -100,6 +123,7 @@ export function SignupPage() {
                     radius="md"
                     value={password}
                     onChange={(e) => setPassword(e.currentTarget.value)}
+                    disabled={loading || success}
                 />
 
                 <PasswordInput
@@ -109,6 +133,7 @@ export function SignupPage() {
                     radius="md"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.currentTarget.value)}
+                    disabled={loading || success}
                 />
 
                 {error && (
@@ -123,14 +148,28 @@ export function SignupPage() {
                     </Alert>
                 )}
 
-                <Group justify="space-between" align="center" mt="md">
-                    <Checkbox
-                        label="Keep me logged in"
-                        size="md"
-                        checked={keepUserLoggedIn}
-                        onChange={(e) => setKeepUserLoggedIn(e.currentTarget.checked)}
-                    />
-                </Group>
+                {success && (
+                    <Alert
+                        title="Signup successful"
+                        color="green"
+                        radius="sm"
+                        mt="sm"
+                        variant="light"
+                    >
+                        Account created. Redirecting to login in {countdown}…
+                        <br />
+                        <Anchor
+                            href="#"
+                            fw={500}
+                            onClick={(event) => {
+                                event.preventDefault();
+                                navigateToLogin();
+                            }}
+                        >
+                           Click here to login now
+                        </Anchor>
+                    </Alert>
+                )}
 
                 <Button
                     fullWidth
@@ -139,7 +178,7 @@ export function SignupPage() {
                     radius="md"
                     className={classes.signupButton}
                     onClick={handleSignup}
-                    disabled={loading}
+                    disabled={loading || success}
                 >
                     {loading ? (
                         <Group gap="xs">
