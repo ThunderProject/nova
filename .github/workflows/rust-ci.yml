@@ -11,6 +11,11 @@ jobs:
   test:
     name: Tests (stable)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        manifest:
+          - nova/Cargo.toml
 
     steps:
       - name: Checkout
