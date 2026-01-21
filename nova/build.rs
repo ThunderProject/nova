@@ -25,7 +25,7 @@ fn main() {
         let dll_dst = target_dir.join("dicom_api.dll");
 
         if dll_src.exists() {
-            fs::copy(&dll_src, &dll_dst).expect(format!("Failed to copy dicom_api.dll into target dir. dir: {}", dll_src.to_str().unwrap()).as_str());
+            fs::copy(&dll_src, &dll_dst).unwrap_or_else(|_| panic!("Failed to copy dicom_api.dll into target dir. dir: {}", dll_src.to_str().unwrap()));
             println!("cargo:info=Copied dicom_api.dll to {}", dll_dst.display());
         } else {
             println!("cargo:warning=dicom_api.dll not found at {}", dll_src.display());
