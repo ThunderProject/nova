@@ -1,7 +1,7 @@
 mod net;
 mod services;
 mod crypto;
-mod auth;
+
 
 use crate::net::webserver::webserver::WebServer;
 use clap::Parser;
