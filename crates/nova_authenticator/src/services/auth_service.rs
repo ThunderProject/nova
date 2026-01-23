@@ -3,8 +3,7 @@ use thiserror::Error;
 use tracing::{error, info};
 use tracing::log::debug;
 use nova_di::ioc::singleton::ioc;
-use crate::{auth};
-use crate::auth::jwt::JwtTokens;
+use nova_crypto::jwt::JwtTokens;
 use crate::crypto::vault::{Vault, VaultError};
 use crate::services::auth_db::{AuthDb, AuthDbError};
 
@@ -66,7 +65,7 @@ impl Auth {
                 let vault = ioc().resolve::<Vault>();
                 let jwt_secrets = vault.fetch_jwt_secrets().await?;
 
-                let jwt = auth::jwt::Jwt::new(&jwt_secrets.public_key, &jwt_secrets.private_key);
+                let jwt = nova_crypto::jwt::Jwt::new(&jwt_secrets.public_key, &jwt_secrets.private_key);
                 if jwt.is_none() {
                     return Err(LoginFailureReason::InternalError);
                 }
@@ -100,7 +99,7 @@ impl Auth {
         let vault = ioc().resolve::<Vault>();
         let jwt_secrets = vault.fetch_jwt_secrets().await?;
 
-        let jwt = auth::jwt::Jwt::new(&jwt_secrets.public_key, &jwt_secrets.private_key)
+        let jwt = nova_crypto::jwt::Jwt::new(&jwt_secrets.public_key, &jwt_secrets.private_key)
             .ok_or(RefreshFailureReason::InternalError)?;
 
         let decoded = jwt.decode_token(refresh_token)
