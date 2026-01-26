@@ -38,13 +38,10 @@ pub enum ProjectError {
 
 impl Project {
 
-    pub async fn new_project(project_params: ProjectParams) -> Result<Self, ProjectError> {
-        // The UI has already shown a big yellow warning that the contents of the
-        // selected folder will be overwritten or deleted, and the user explicitly
-        // confirmed (otherwise we wouldn’t be here).
-        // At this point, data loss is the user’s decision, not a bug.
-        // It’s called informed consent.
-        FileSystem::clear_dir_par(&project_params.working_directory)?;
+    pub async fn new_project(project_params: ProjectParams, clear_dir: bool) -> Result<Self, ProjectError> {
+        if clear_dir {
+            FileSystem::clear_dir_par(&project_params.working_directory)?;
+        }
 
         if project_params.imported_files.is_empty() {
             return Ok(
