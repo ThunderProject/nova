@@ -67,6 +67,7 @@ impl Vault {
         Ok(this)
     }
 
+    #[allow(dead_code)]
     pub async fn logout(&self) -> Result<(), VaultError> {
         self.execute_command(&["logout"]).await?;
         Ok(())

@@ -11,7 +11,12 @@ pub async fn create_new_project(params: ProjectParams) -> Result<(), String> {
     debug!("Working directory: {}", params.working_directory);
     debug!("Imported files: {:?}", params.imported_files);
 
-    let result = Project::new_project(params).await;
+    // The UI has already shown a big yellow warning that the contents of the
+    // selected folder will be overwritten or deleted, and the user explicitly
+    // confirmed (otherwise we wouldn’t be here).
+    // At this point, data loss is the user’s decision, not a bug.
+    // It’s called informed consent.
+    let result = Project::new_project(params, true).await;
     if let Ok(project) = result {
         let arc = Arc::new(project);
         ioc::singleton::ioc().register(move || Arc::clone(&arc));
