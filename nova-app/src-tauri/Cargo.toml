@@ -30,7 +30,7 @@ tracing-subscriber = { version = "0.3.20", features = ["time"]}
 anyhow = "1.0.100"
 tauri-plugin-dialog = "2.4.2"
 tracing = "0.1.41"
-time = { version = "0.3.44", features = ["local-offset"] }
+time = { version = "0.3.47", features = ["local-offset"] }
 authenticated_command = { path = "src/authenticated_command" }
 nova_project = { path = "../../crates/nova_project" }
 nova_auth = { path = "../../crates/nova_auth" }
