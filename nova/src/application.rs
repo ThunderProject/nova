@@ -5,9 +5,12 @@ use nova_di::ioc;
 use nova_fs::folder_resolver::FolderResolver;
 use crate::dicom::bridge::dicom_bridge::{dicom_api, register_logger_service};
 
+#[allow(dead_code)]
 pub struct Settings {
     assets_directory: PathBuf,
 }
+
+#[allow(dead_code)]
 pub struct App {
     settings: Settings,
 }

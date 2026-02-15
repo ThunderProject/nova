@@ -1,0 +1,48 @@
+name: Rust CI
+
+on:
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-Dwarnings"
+
+jobs:
+  test:
+    name: Tests (stable)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        manifest:
+          - nova/Cargo.toml
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run tests
+        run: cargo test --manifest-path ${{ matrix.manifest }} --workspace --all-targets --all-features
+
+  clippy:
+    name: Clippy (stable)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        manifest:
+          - nova/Cargo.toml
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run clippy (deny warnings)
+        run: cargo clippy --manifest-path ${{ matrix.manifest }} --workspace --all-targets --all-features -- -D warnings
