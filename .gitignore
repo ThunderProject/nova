@@ -25,3 +25,7 @@ nova/target/
 nova/src/.cargo/
 
 nova/src/dicom/cxx/build/
+crates/nova_authenticator/target/
+node_modules/
+packages/build/
+packages/target/
