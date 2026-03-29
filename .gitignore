@@ -29,3 +29,5 @@ crates/nova_authenticator/target/
 node_modules/
 packages/build/
 packages/target/
+*.lock
+packages/testing/Temporary/

@@ -82,6 +82,7 @@ target_link_libraries(nova_logger_tests
     PRIVATE
         nova_logging
         Catch2::Catch2WithMain
+        nova_project_options
 )
 
 include(CTest)
