@@ -1,9 +1,25 @@
 CompileFlags:
   CompilationDatabase: packages/build/Release/cmake
+  Add:
+      - -Wall
+      # - -Wextra
+      - -Wno-c++98-compat
+      - -Wno-c++98-compat-pedantic
+      - -Wno-sign-conversion
+      - -Wno-conversion
+      - -Wno-ctad-maybe-unsupported
+      - -Werror
+      - -Wno-global-constructors
+      - -Wno-exit-time-destructors
+      - -Wno-padded
+      - -std=c++26
 
 Diagnostics:
   ClangTidy:
     Add:
+      - bugprone-*
+      - bugprone-narrowing-conversions
+      - cppcoreguidelines-narrowing-conversions
       - bugprone-*
       - performance-*
       - modernize-*
@@ -12,6 +28,7 @@ Diagnostics:
       - modernize-use-trailing-return-type
       - readability-identifier-length
       - readability-named-parameter
+      - bugprone-easily-swappable-parameters
 
   UnusedIncludes: Strict
   MissingIncludes: Strict
