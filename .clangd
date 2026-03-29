@@ -1,0 +1,29 @@
+CompileFlags:
+  CompilationDatabase: packages/build/Release/cmake
+
+Diagnostics:
+  ClangTidy:
+    Add:
+      - bugprone-*
+      - performance-*
+      - modernize-*
+      - readability-*
+    Remove:
+      - modernize-use-trailing-return-type
+      - readability-identifier-length
+      - readability-named-parameter
+
+  UnusedIncludes: Strict
+  MissingIncludes: Strict
+
+InlayHints:
+  Enabled: true
+  ParameterNames: true
+  DeducedTypes: true
+  Designators: true
+
+Hover:
+  ShowAKA: true
+
+Completion:
+  AllScopes: true
