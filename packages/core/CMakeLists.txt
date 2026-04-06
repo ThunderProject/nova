@@ -6,9 +6,13 @@ target_include_directories(nova_core
 )
 
 target_compile_features(nova_core INTERFACE cxx_std_23)
+
+find_package(libassert REQUIRED)
+
 target_link_libraries(nova_core
     INTERFACE
     nova_project_options
+    libassert::assert
 )
 
 if(NOVA_BUILD_TESTS)

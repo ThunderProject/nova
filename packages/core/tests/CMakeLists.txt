@@ -2,6 +2,7 @@ find_package(Catch2 3 REQUIRED)
 
 add_executable(nova_core_tests
     enum_utils_test.cpp
+    indirect_test.cpp
 )
 
 target_compile_features(nova_core_tests PRIVATE cxx_std_23)
