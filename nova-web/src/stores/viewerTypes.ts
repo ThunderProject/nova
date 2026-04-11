@@ -49,7 +49,7 @@ type ViewerStore = {
     setLayerParams: (viewportId: ViewportId, layerId: string, params: LayerParams) => void;
 };
 
-export const useViewerStore = create(subscribeWithSelector<ViewerStore>((set, get) => ({
+export const useViewerStore = create(subscribeWithSelector<ViewerStore>((set, _get) => ({
     addViewport: (viewport) => {
         const id = viewport.id;
 

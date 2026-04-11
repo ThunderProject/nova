@@ -1,16 +1,16 @@
+import { Title, Tooltip, UnstyledButton } from '@mantine/core';
 import {
-    IconZoomInArea,
-    IconPointer,
     IconAdjustmentsHorizontal,
+    IconPointer,
     IconRotate,
     IconRulerMeasure,
+    IconZoomInArea,
 } from '@tabler/icons-react';
-import { Title, Tooltip, UnstyledButton } from '@mantine/core';
 import classes from './DoubleNavbar.module.css';
 import novaLogo from './assets/nova_icon.png';
-import { useViewerToolsStore } from './stores/ViewerToolStore';
-import type { ViewerTool } from './stores/ViewerToolStore';
 import CTWindowingToolSettings from "./components/CTWindowingToolSettings/CTWindowingToolSettings.tsx";
+import type { ViewerTool } from './stores/ViewerToolStore';
+import { useViewerToolsStore } from './stores/ViewerToolStore';
 
 //mock components
 const ZoomToolSettings = () => <p>Zoom tool settings</p>;

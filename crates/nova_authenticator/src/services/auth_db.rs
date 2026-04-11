@@ -5,6 +5,7 @@ use thiserror::Error;
 use tracing::{error, info};
 use argon2::password_hash::SaltString;
 
+#[allow(dead_code, unused)]
 pub struct User {
     pub username: String,
     pub password_hash: String,

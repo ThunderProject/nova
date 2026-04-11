@@ -65,7 +65,7 @@ export class RenderContext {
             }
 
             const camera = new ArcRotateCamera(
-                "camera-" + id,
+                `camera-${id}`,
                 Math.PI / 4,
                 Math.PI / 3,
                 6,

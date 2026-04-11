@@ -35,6 +35,7 @@ type NovaCommandMap = {
     [NovaCommand.RenamePath]: { params: { from: string; to: string }; result: boolean };
     [NovaCommand.PathExists]: { params: { path: string }; result: boolean };
     [NovaCommand.WriteFile]: { params: { path: string; contents: string }; result: boolean };
+    // biome-ignore lint/suspicious/noConfusingVoidType: result describes the return type of the api invocation
     [NovaCommand.OpenProject]: { params: { file: string; }; result: void };
     [NovaCommand.CreateNewProject]: { params: { params: MappedProjectParams; }; result: void };
     [NovaCommand.IsEmpty]: { params: { path: string; }; result: boolean };
