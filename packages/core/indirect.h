@@ -413,13 +413,13 @@ namespace nova {
         }
 
         constexpr void reset() noexcept {
-            if(auto ptr = std::exchange(m_ptr, nullptr)) {
-                destroy_with(m_allocator, m_ptr);
+            if (auto ptr = std::exchange(m_ptr, nullptr)) {
+                   destroy_with(m_allocator, ptr);
             }
         }
 
         pointer m_ptr;
-        [[msvc::no_unique_address]] allocator_type m_allocator;
+        [[no_unique_address]] allocator_type m_allocator;
     };
 
     template <class T>

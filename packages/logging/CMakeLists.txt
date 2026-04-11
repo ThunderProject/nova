@@ -11,6 +11,7 @@ target_compile_features(nova_logging PUBLIC cxx_std_23)
 
 find_package(quill REQUIRED)
 find_package(libassert REQUIRED)
+find_package(magic_enum REQUIRED)
 
 target_link_libraries(nova_logging
     PUBLIC
@@ -18,6 +19,7 @@ target_link_libraries(nova_logging
     libassert::assert
     PRIVATE
     nova_project_options
+    magic_enum::magic_enum
 )
 
 if(NOVA_BUILD_TESTS)

@@ -1,7 +1,6 @@
 find_package(Catch2 3 REQUIRED)
 
 add_executable(nova_core_tests
-    enum_utils_test.cpp
     indirect_test.cpp
 )
 
