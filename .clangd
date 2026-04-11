@@ -2,11 +2,12 @@ CompileFlags:
   CompilationDatabase: packages/build/Release/cmake
   Add:
       - -Wall
-      # - -Wextra
+      - -std=c++2c
+      - -Wall
+      - -Wextra
+      - -Wpedantic
       - -Wno-c++98-compat
       - -Wno-c++98-compat-pedantic
-      - -Wno-sign-conversion
-      - -Wno-conversion
       - -Wno-ctad-maybe-unsupported
       - -Werror
       - -Wno-global-constructors
@@ -18,8 +19,6 @@ Diagnostics:
   ClangTidy:
     Add:
       - bugprone-*
-      - bugprone-narrowing-conversions
-      - cppcoreguidelines-narrowing-conversions
       - bugprone-*
       - performance-*
       - modernize-*
