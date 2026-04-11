@@ -12,12 +12,11 @@
 #include <libassert/assert.hpp>
 #include <cstdint>
 #include <ranges>
-#include <chrono>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
-#include "core/enum_utils.h"
+#include "magic_enum/magic_enum.hpp"
 
 using namespace std::chrono_literals;
 namespace rn = std::ranges;
@@ -38,7 +37,7 @@ public:
             std::vector<std::pair<std::string, std::string>> const*,
             std::string_view msg, std::string_view) override
     {
-        const auto level_str = nova::enum_to_string(lvl)
+        const auto level_str = magic_enum::enum_name(lvl)
             | vi::transform([](auto c) { return std::tolower(c); })
             | rn::to<std::string>();
 
