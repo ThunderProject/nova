@@ -28,6 +28,7 @@ Diagnostics:
       - readability-identifier-length
       - readability-named-parameter
       - bugprone-easily-swappable-parameters
+      - readability-magic-numbers
 
   UnusedIncludes: Strict
   MissingIncludes: Strict
