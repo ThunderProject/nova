@@ -20,7 +20,7 @@ axum-server = { version = "0.7.2", features = ["tls-rustls-no-provider"] }
 axum-macros = "0.5.0"
 tower-http = "0.6.6"
 rustls-pemfile = "2.2.0"
-rustls = { version = "0.23.28", features = ["aws-lc-rs"]}
+rustls = { version = "0.23.28", features = ["std", "ring", "aws-lc-rs"]}
 mimalloc = { version = "*", features = ["secure"] }
 sqlx = { version = "0.8", features = [ "runtime-tokio", "postgres" ] }
 argon2 = "0.5.3"

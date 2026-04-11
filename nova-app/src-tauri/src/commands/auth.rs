@@ -1,4 +1,3 @@
-use std::result;
 pub(crate) use crate::auth_state::auth_state::AuthState;
 use authenticated_command::authenticated_command;
 use nova_auth::auth_service::*;

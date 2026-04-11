@@ -77,9 +77,22 @@ impl WebServer {
     }
 
     pub fn install_crypto_provider() -> anyhow::Result<()> {
-        CryptoProvider::install_default(rustls::crypto::aws_lc_rs::default_provider())
-            .map_err(|_| anyhow::anyhow!("Failed to install crypto provider"))?;
-        Ok(())
+        if CryptoProvider::install_default(
+            rustls::crypto::aws_lc_rs::default_provider()
+        ).is_ok() {
+            info!("Using AWS-LC crypto provider");
+            return Ok(());
+        }
+
+        // fallback to ring if aws-lc failed
+        if CryptoProvider::install_default(
+            rustls::crypto::ring::default_provider()
+        ).is_ok() {
+            info!("Using Ring crypto provider");
+            return Ok(());
+        }
+
+        Err(anyhow::anyhow!("Failed to install crypto provider"))
     }
 
     pub async fn run(&self) -> anyhow::Result<()> {
