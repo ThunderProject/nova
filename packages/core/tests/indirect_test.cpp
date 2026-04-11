@@ -2,10 +2,13 @@
 #include <catch2/catch_test_macros.hpp>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <initializer_list>
 #include <limits>
 #include <memory>
+#include <string>
 #include <type_traits>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -29,7 +32,7 @@ public:
 
 
     template<typename U>
-    tracking_allocator(const tracking_allocator<U>& rhs) noexcept
+    explicit tracking_allocator(const tracking_allocator<U>& rhs) noexcept
         :
         allocations(rhs.allocations),
         deallocations(rhs.deallocations),
@@ -152,6 +155,20 @@ struct tracked_value {
     int32_t value;
 };
 
+struct const_propagation {
+    enum class category : std::uint8_t {
+        lvalue,
+        const_lvalue,
+        rvalue,
+        const_rvalue
+    };
+
+    [[nodiscard]] category get() & { return category::lvalue; }
+    [[nodiscard]] category get() const& { return category::const_lvalue; }
+    [[nodiscard]] category get() && { return category::rvalue; }
+    [[nodiscard]] category get() const&& { return category::const_rvalue; }
+};
+
 TEST_CASE("nova::indirect", "[indirect]") {
     SECTION("Constructors") {
         SECTION("default constructor") {
@@ -254,7 +271,7 @@ TEST_CASE("nova::indirect", "[indirect]") {
         }
         SECTION("move constructor") {
             nova::indirect<int> a(std::in_place, 42);
-            auto* old_address = std::addressof(*a);
+            const auto* old_address = std::addressof(*a);
             nova::indirect<int32_t> b(std::move(a));
 
             REQUIRE(a.valueless_after_move());
@@ -284,7 +301,7 @@ TEST_CASE("nova::indirect", "[indirect]") {
             using allocator = tracking_allocator<int32_t>;
 
             nova::indirect<int, allocator> a(std::allocator_arg, {&allocations, &deallocations, 7}, std::in_place, 42);
-            auto* old_address = std::addressof(*a);
+            const auto* old_address = std::addressof(*a);
 
             nova::indirect<int, allocator> b(std::allocator_arg, {&allocations, &deallocations, 7}, std::move(a));
 
@@ -347,6 +364,216 @@ TEST_CASE("nova::indirect", "[indirect]") {
 
             REQUIRE(allocations == 1);
             REQUIRE(deallocations == 1);
+        }
+    }
+    SECTION("Assignment") {
+        SECTION("copy assignment") {
+            nova::indirect<int32_t> a(std::in_place, 42);
+            nova::indirect<int32_t> b(std::in_place, 84);
+
+            a = b;
+
+            REQUIRE(*a == 84);
+            REQUIRE(*b == 84);
+            REQUIRE(std::addressof(*a) != std::addressof(*b));
+        }
+        SECTION("move assignment") {
+            std::size_t allocations = 0;
+            std::size_t deallocations = 0;
+            using allocator = tracking_allocator<int>;
+
+            nova::indirect<int, allocator> a(std::allocator_arg, {&allocations, &deallocations, 1}, std::in_place, 42);
+            nova::indirect<int, allocator> b(std::allocator_arg, {&allocations, &deallocations, 1}, std::in_place, 101);
+
+            const auto* a_old = std::addressof(*a);
+
+            b = std::move(a);
+
+            REQUIRE(a.valueless_after_move());
+            REQUIRE(*b == 42);
+            REQUIRE(std::addressof(*b) == a_old);
+        }
+        SECTION("move assignment from valueless") {
+            auto v = make_valueless_int_indirect();
+            nova::indirect<int> x(std::in_place, 88);
+
+            x = std::move(v);
+
+            REQUIRE(x.valueless_after_move());
+        }
+    }
+    SECTION("Accessors") {
+        SECTION("operator* returns lvalue reference") {
+            nova::indirect<int> x(std::in_place, 42);
+
+           static_assert(std::is_same_v<decltype(*x), int&>);
+           REQUIRE(*x == 42);
+
+            *x = 99;
+            REQUIRE(*x == 99);
+        }
+        SECTION("const operator* returns const lvalue reference") {
+            const nova::indirect<int> x(std::in_place, 42);
+
+            static_assert(std::is_same_v<decltype(*x), const int&>);
+            REQUIRE(*x == 42);
+        }
+        SECTION("rvalue operator* returns rvalue reference") {
+            static_assert(std::is_same_v<decltype(*std::declval<nova::indirect<int>&&>()), int&&>);
+            static_assert(std::is_same_v<decltype(*std::declval<const nova::indirect<int>&&>()), const int&&>);
+        }
+        SECTION("operator-> gives access to pointee") {
+            nova::indirect<std::string> s(std::in_place, "hello");
+
+            REQUIRE(s->size() == 5);
+            REQUIRE((*s)[0] == 'h');
+        }
+        SECTION("get_allocator returns current allocator") {
+            std::size_t allocations = 0;
+            std::size_t deallocations = 0;
+
+            using allocator = tracking_allocator<int>;
+
+            nova::indirect<int, allocator> x(std::allocator_arg, {&allocations, &deallocations, 123}, std::in_place, 42);
+
+            auto alloc = x.get_allocator();
+            REQUIRE(alloc.tag == 123);
+            REQUIRE(alloc.allocations == &allocations);
+            REQUIRE(alloc.deallocations == &deallocations);
+        }
+        SECTION("valueless_after_move reports state correctly") {
+            nova::indirect<int> x(std::in_place, 42);
+            REQUIRE_FALSE(x.valueless_after_move());
+
+            auto y = std::move(x);
+            (void)y;
+
+            REQUIRE(x.valueless_after_move());
+        }
+        SECTION("const and value category propagate correctly through operator* and operator->") {
+            nova::indirect<const_propagation> x;
+
+            REQUIRE(x->get() == const_propagation::category::lvalue);
+            REQUIRE((*x).get() == const_propagation::category::lvalue);
+
+            const auto& cx = x;
+            REQUIRE(cx->get() == const_propagation::category::const_lvalue);
+            REQUIRE((*cx).get() == const_propagation::category::const_lvalue);
+
+            REQUIRE((*nova::indirect<const_propagation>{}).get() == const_propagation::category::rvalue);
+
+            auto make_const_rvalue = []() -> const nova::indirect<const_propagation>&& {
+                static nova::indirect<const_propagation> tmp;
+                return std::move(tmp);
+            };
+
+            REQUIRE((*make_const_rvalue()).get() == const_propagation::category::const_rvalue);
+        }
+    }
+    SECTION("Modifiers") {
+        SECTION("member swap") {
+            nova::indirect<int> a(std::in_place, 1);
+            nova::indirect<int> b(std::in_place, 2);
+
+            a.swap(b);
+
+            REQUIRE(*a == 2);
+            REQUIRE(*b == 1);
+        }
+        SECTION("non-member swap") {
+            nova::indirect<int> a(std::in_place, 1);
+            nova::indirect<int> b(std::in_place, 2);
+
+            std::swap(a,b);
+
+            REQUIRE(*a == 2);
+            REQUIRE(*b == 1);
+        }
+        SECTION("swap with self") {
+            nova::indirect<int> a(std::in_place, 42);
+
+            a.swap(a);
+
+            REQUIRE_FALSE(a.valueless_after_move());
+            REQUIRE(*a == 42);
+        }
+    }
+    SECTION("Comparison") {
+        SECTION("equal comparison") {
+            nova::indirect<int> a(std::in_place, 42);
+            nova::indirect<int> b(std::in_place, 42);
+            nova::indirect<int> c(std::in_place, 99);
+
+            REQUIRE(a == b);
+            REQUIRE_FALSE(a == c);
+            REQUIRE(a != c);
+        }
+        SECTION("three-way comparison") {
+            nova::indirect<int> a(std::in_place, 1);
+            nova::indirect<int> b(std::in_place, 2);
+            nova::indirect<int> c(std::in_place, 2);
+
+            REQUIRE((a <=> b) < 0);
+            REQUIRE((b <=> a) > 0);
+            REQUIRE((b <=> c) == 0);
+        }
+        SECTION("comparison with raw value") {
+            nova::indirect<int> a(std::in_place, 42);
+
+            REQUIRE(a == 42);
+            REQUIRE_FALSE(a == 7);
+            REQUIRE((a <=> 100) < 0);
+            REQUIRE((a <=> 1) > 0);
+            REQUIRE((a <=> 42) == 0);
+        }
+        SECTION("valueless objects comparison correctly and valued objects") {
+            auto v1 = make_valueless_int_indirect();
+            auto v2 = make_valueless_int_indirect();
+            nova::indirect<int> x(std::in_place, 42);
+
+            REQUIRE(v1 == v2);
+            REQUIRE_FALSE(v1 == x);
+            REQUIRE_FALSE(x == v1);
+
+            REQUIRE((v1 <=> v2) == 0);
+            REQUIRE((v1 <=> x) < 0);
+            REQUIRE((x <=> v1) > 0);
+        }
+        SECTION("valueless object compares less than raw value") {
+            auto v = make_valueless_int_indirect();
+
+            REQUIRE_FALSE(v == 42);
+            REQUIRE((v <=> 42) < 0);
+        }
+        SECTION("comparison of different underlying types") {
+            nova::indirect<int> a(std::in_place, 42);
+            nova::indirect<long> b(std::in_place, 42L);
+            nova::indirect<double> c(std::in_place, 99.0);
+
+            REQUIRE(a == b);
+            REQUIRE_FALSE(a == c);
+            REQUIRE((a <=> c) < 0);
+            REQUIRE((c <=> a) > 0);
+        }
+    }
+    SECTION("Hash support") {
+        SECTION("hash of valued indirect matches hash of contained value") {
+            nova::indirect<int> x(std::in_place, 42);
+            REQUIRE(std::hash<nova::indirect<int>>{}(x) == std::hash<int>{}(42));
+        }
+        SECTION("hash of valueless indirect is size_t(-1)") {
+            auto v = make_valueless_int_indirect();
+            REQUIRE(std::hash<nova::indirect<int>>{}(v) == static_cast<std::size_t>(-1));
+        }
+        SECTION("indirect can be used in unordered containers") {
+            std::unordered_set<nova::indirect<int>> set;
+            set.emplace(std::in_place, 1);
+            set.emplace(std::in_place, 2);
+            set.emplace(std::in_place, 1);
+
+            REQUIRE(set.size() == 2);
+            REQUIRE(set.contains(nova::indirect<int>(std::in_place, 1)));
+            REQUIRE(set.contains(nova::indirect<int>(std::in_place, 2)));
         }
     }
 }
