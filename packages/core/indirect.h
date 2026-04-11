@@ -414,7 +414,7 @@ namespace nova {
 
         constexpr void reset() noexcept {
             if (auto ptr = std::exchange(m_ptr, nullptr)) {
-                   destroy_with(m_allocator, ptr);
+                destroy_with(m_allocator, ptr);
             }
         }
 
