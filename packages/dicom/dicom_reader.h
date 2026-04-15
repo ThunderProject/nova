@@ -1,7 +1,9 @@
+#pragma once
+
 #include "core/indirect.h"
+#include "dicom.h"
 #include <filesystem>
-#include <optional>
-#include <string>
+#include "core/result.h"
 
 namespace nova::dicom {
     class dicom_reader final {
@@ -11,9 +13,10 @@ namespace nova::dicom {
         auto operator=(const dicom_reader&) -> dicom_reader& = delete;
         explicit dicom_reader(dicom_reader&&) noexcept;
         auto operator=(dicom_reader&&) noexcept -> dicom_reader&;
-        ~dicom_reader() = default;
+        ~dicom_reader();
 
-        std::optional<std::string> load(const std::filesystem::path& path);
+        nova::result<ok> load(const std::filesystem::path& path);
+        [[nodiscard]] metadata read_metadata();
     private:
         class impl;
         nova::indirect<impl> m_impl;

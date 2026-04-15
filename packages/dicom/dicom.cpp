@@ -1,4 +1,5 @@
 #include "dicom.h"
+#include "core/result.h"
 #include "libassert/assert.hpp"
 #include <expected>
 #include <string>
@@ -6,12 +7,8 @@
 
 using namespace nova::dicom;
 
-dicom_tag_data resolve_dicom_tag(dicom_tag tag) {
+dicom_tag_data nova::dicom::resolve_dicom_tag(dicom_tag tag) {
     switch (tag) {
-        case dicom_tag::modality: return {
-            .group = 0x0008,
-            .element = 0x0060
-        };
          case dicom_tag::samples_per_pixel: return {
              .group = 0x0028,
              .element = 0x0002
@@ -112,15 +109,99 @@ dicom_tag_data resolve_dicom_tag(dicom_tag tag) {
              .group = 0x0028,
              .element = 0x1053
          };
-        case dicom_tag::body_part_examined: return {
+        case dicom_tag::patient_name: return {
+            .group = 0x0010,
+            .element = 0x0010
+        };
+        case dicom_tag::patient_id: return {
+            .group = 0x0010,
+            .element = 0x0020
+        };
+        case dicom_tag::patient_birth_date: return {
+            .group = 0x0010,
+            .element = 0x0030
+        };
+        case dicom_tag::patient_birth_time: return {
+            .group = 0x0010,
+            .element = 0x0032
+        };
+        case dicom_tag::patient_sex: return {
+            .group = 0x0010,
+            .element = 0x0040
+        };
+        case dicom_tag::study_date: return {
+            .group = 0x0008,
+            .element = 0x0020
+        };
+        case dicom_tag::study_time: return {
+            .group = 0x0008,
+            .element = 0x0030
+        };
+        case dicom_tag::study_instance_uid: return {
+            .group = 0x0020,
+            .element = 0x000D
+        };
+        case dicom_tag::study_id: return {
+            .group = 0x0020,
+            .element = 0x0010
+        };
+        case dicom_tag::study_accession_number: return {
+            .group = 0x0008,
+            .element = 0x0050
+        };
+        case dicom_tag::study_description:
+        return {
+            .group = 0x0008,
+            .element = 0x1030
+        };
+        case dicom_tag::study_referring_physician_name: return {
+            .group = 0x0008,
+            .element = 0x0090
+        };
+        case dicom_tag::series_instance_uid: return {
+            .group = 0x0020,
+            .element = 0x000E
+        };
+        case dicom_tag::series_description: return {
+            .group = 0x0008,
+            .element = 0x103E
+        };
+        case dicom_tag::series_number: return {
+            .group = 0x0020,
+            .element = 0x0011
+        };
+        case dicom_tag::series_modality: return {
+            .group = 0x0008,
+            .element = 0x0060
+        };
+        case dicom_tag::series_body_part_examined: return {
             .group = 0x0018,
             .element = 0x0015
         };
-         default: UNREACHABLE();
-     }
+        case dicom_tag::series_performing_physician_name: return {
+            .group = 0x0008,
+            .element = 0x1050
+        };
+        case dicom_tag::series_smallest_pixel_value: return {
+            .group = 0x0028,
+            .element = 0x0108
+        };
+        case dicom_tag::series_largest_pixel_value: return {
+            .group = 0x0028,
+            .element = 0x0109
+        };
+        case dicom_tag::series_date: return {
+            .group = 0x0008,
+            .element = 0x0021
+        };
+        case dicom_tag::series_time:  return {
+            .group = 0x0008,
+            .element = 0x0031
+        };
+    }
 }
 
-std::expected<modality, std::string> resolve_modality(std::string_view modality) {
+nova::result<modality> nova::dicom::resolve_modality(std::string_view modality) {
     if (modality == "BDUS") {
         return modality::UltraSoundBoneDensitometry;
     }
