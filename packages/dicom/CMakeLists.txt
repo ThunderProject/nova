@@ -18,13 +18,14 @@ find_package(magic_enum REQUIRED)
 target_link_libraries(nova_dicom
     PUBLIC
     dcmtk::dcmtk
+    libassert::assert
+    nova_logging
+    quill::quill
     PRIVATE
     nova_project_options
     magic_enum::magic_enum
-    libassert::assert
-    quill::quill
 )
 
 if(NOVA_BUILD_TESTS)
-    #add_subdirectory(tests)
+    add_subdirectory(tests)
 endif()
