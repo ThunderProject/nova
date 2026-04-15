@@ -1,4 +1,5 @@
 #include "dicom_reader.h"
+#include "core/result.h"
 #include "dicom.h"
 #include <assert.hpp>
 #include <dcmdata/dcdatset.h>
@@ -7,34 +8,32 @@
 #include <dcmdata/dctagkey.h>
 #include <exception>
 #include <filesystem>
-#include "dcmtk/dcmdata/dctk.h"
 #include "logging/logger.h"
 #include <magic_enum/magic_enum.hpp>
 #include <memory>
-#include <optional>
 #include <string>
 #include <utility>
 
 using namespace nova::dicom;
 class dicom_reader::impl final {
 public:
-    [[nodiscard]] std::optional<std::string> load(const std::filesystem::path& path) noexcept {
+    [[nodiscard]] nova::result<nova::ok> load(const std::filesystem::path& path) noexcept {
         try {
             clear();
             auto file = std::make_unique<DcmFileFormat>();
 
             const auto status = file->loadFile(path.string());
             if(status.bad()) {
-                return std::string(status.text());
+                return nova::err(std::string(status.text()));
             }
 
             m_file = std::move(file);
             m_file_path = path;
 
-            return std::nullopt;
+            return nova::ok{};
         }
         catch(const std::exception& e) {
-            return e.what();
+            return nova::err(e.what());
         }
     }
 
@@ -58,14 +57,44 @@ public:
         return value;
     }
 
-    metadata read_metadata() {
-        metadata metadata{};
-        metadata.patient.name = read_tag(dicom_tag::patient_name);
-        metadata.patient.birth_date = read_tag(dicom_tag::patient_birth_date);
-        metadata.patient.id = read_tag(dicom_tag::patient_id);
-        metadata.patient.sex = read_tag(dicom_tag::patient_sex);
-
-        return metadata;
+    [[nodiscard]] metadata read_metadata() const {
+        return {
+            .patient{
+                .name = read_tag(dicom_tag::patient_name),
+                .id = read_tag(dicom_tag::patient_id),
+                .birth_date = read_tag(dicom_tag::patient_birth_date),
+                .birth_time = read_tag(dicom_tag::patient_birth_time),
+                .sex = read_tag(dicom_tag::patient_sex),
+            },
+            .study {
+                .instance_uid = read_tag(dicom_tag::study_instance_uid),
+                .id = read_tag(dicom_tag::study_id),
+                .date = read_tag(dicom_tag::study_date),
+                .time = read_tag(dicom_tag::study_time),
+                .accession_number = read_tag(dicom_tag::study_accession_number),
+                .description = read_tag(dicom_tag::study_description),
+                .referring_physician_name = read_tag(dicom_tag::study_referring_physician_name)
+            },
+            .series {
+                .instance_uid = read_tag(dicom_tag::series_instance_uid),
+                .date = read_tag(dicom_tag::series_date),
+                .time = read_tag(dicom_tag::series_time),
+                .description = read_tag(dicom_tag::series_description),
+                .number = read_tag(dicom_tag::series_number),
+                .body_part_examined = read_tag(dicom_tag::series_body_part_examined),
+                .performing_physician_name = read_tag(dicom_tag::series_performing_physician_name),
+                .smallest_pixel_value = read_tag(dicom_tag::series_smallest_pixel_value),
+                .largest_pixel_value = read_tag(dicom_tag::series_largest_pixel_value),
+                .modality = [this] -> modality {
+                    const auto result = resolve_modality(read_tag(dicom_tag::series_modality));
+                    if(result) {
+                        return result.value();
+                    }
+                    logger::error("Failed to read dicom modality: {}", result.error());
+                    return modality::Unknown;
+                }()
+            }
+        };
     }
 
     void clear() noexcept {
@@ -77,16 +106,23 @@ public:
         return m_file != nullptr;
     }
 
+    [[nodiscard]] std::filesystem::path file_path() const noexcept {
+        return m_file_path;
+    }
 private:
     std::unique_ptr<DcmFileFormat> m_file{nullptr};
     std::filesystem::path m_file_path;
 };
 
-dicom_reader::dicom_reader()
-    :
-    m_impl{}
-{}
+dicom_reader::dicom_reader() = default;
+dicom_reader::dicom_reader(dicom_reader&&) noexcept = default;
+auto dicom_reader::operator=(dicom_reader&&) noexcept -> dicom_reader& = default;
+dicom_reader::~dicom_reader() = default;
 
-std::optional<std::string> dicom_reader::load(const std::filesystem::path& path) {
+nova::result<nova::ok> dicom_reader::load(const std::filesystem::path& path) {
     return m_impl->load(path);
+}
+
+metadata dicom_reader::read_metadata() {
+    return m_impl->read_metadata();
 }

@@ -1,15 +1,35 @@
+#pragma once
+
 #include <cstdint>
 #include <expected>
 #include <string>
 #include <string_view>
+#include "core/result.h"
 
 namespace nova::dicom {
     enum class dicom_tag : uint8_t {
         patient_name,
         patient_id,
         patient_birth_date,
+        patient_birth_time,
         patient_sex,
-        modality,
+        study_date,
+        study_time,
+        study_instance_uid,
+        study_id,
+        study_accession_number,
+        study_description,
+        study_referring_physician_name,
+        series_date,
+        series_time,
+        series_instance_uid,
+        series_description,
+        series_number,
+        series_modality,
+        series_body_part_examined,
+        series_performing_physician_name,
+        series_smallest_pixel_value,
+        series_largest_pixel_value,
         samples_per_pixel,
         photometric_interpretation,
         rows,
@@ -35,10 +55,10 @@ namespace nova::dicom {
         window_width,
         rescale_intercept,
         rescale_slope,
-        body_part_examined
     };
 
     enum class modality : uint8_t {
+        Unknown,
         // Ultrasound-based measurement of bone density
         UltraSoundBoneDensitometry,
         // Measurement of magnetic fields produced by electrical activity in organs
@@ -88,13 +108,39 @@ namespace nova::dicom {
         std::string name;
         std::string id;
         std::string birth_date;
+        std::string birth_time;
         std::string sex;
+    };
+
+    struct study {
+        std::string instance_uid;
+        std::string id;
+        std::string date;
+        std::string time;
+        std::string accession_number;
+        std::string description;
+        std::string referring_physician_name;
+    };
+
+    struct series {
+        std::string instance_uid;
+        std::string date;
+        std::string time;
+        std::string description;
+        std::string number;
+        std::string body_part_examined ;
+        std::string performing_physician_name;
+        std::string smallest_pixel_value;
+        std::string largest_pixel_value;
+        modality modality;
     };
 
     struct metadata {
         patient patient;
+        study study;
+        series series;
     };
 
-    dicom_tag_data resolve_dicom_tag(dicom_tag tag);
-    std::expected<modality, std::string> resolve_modality(std::string_view modality);
+    [[nodiscard]] dicom_tag_data resolve_dicom_tag(dicom_tag tag);
+    [[nodiscard]] nova::result<modality> resolve_modality(std::string_view modality);
 }
