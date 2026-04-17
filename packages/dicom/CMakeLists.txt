@@ -9,6 +9,7 @@ target_include_directories(nova_dicom
 )
 
 target_compile_features(nova_dicom PUBLIC cxx_std_23)
+nova_enable_unity_build(nova_dicom)
 
 find_package(quill REQUIRED)
 find_package(libassert REQUIRED)

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 4.3.0)
 
-project(nova_software)
+project(nova)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -8,6 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(NOVA_BUILD_TESTS ON)
 set(NOVA_USE_BUILD_CACHE ON)
+set(NOVA_ENABLE_UNITY_BUILD ON)
 
 enable_testing()
 include(CTest)

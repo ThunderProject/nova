@@ -8,6 +8,7 @@ target_include_directories(nova_logging
 )
 
 target_compile_features(nova_logging PUBLIC cxx_std_23)
+nova_enable_unity_build(nova_logging)
 
 find_package(quill REQUIRED)
 find_package(libassert REQUIRED)
