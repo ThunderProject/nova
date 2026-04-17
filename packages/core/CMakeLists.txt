@@ -6,6 +6,7 @@ target_include_directories(nova_core
 )
 
 target_compile_features(nova_core INTERFACE cxx_std_23)
+nova_enable_unity_build(nova_core)
 
 find_package(libassert REQUIRED)
 

@@ -1,6 +1,15 @@
 include_guard(GLOBAL)
 add_library(nova_project_options INTERFACE)
 
+function(nova_enable_unity_build target)
+    if(NOVA_ENABLE_UNITY_BUILD)
+        set_target_properties(${target} PROPERTIES
+            UNITY_BUILD ON
+            UNITY_BUILD_BATCH_SIZE 16
+        )
+    endif()
+endfunction()
+
 target_compile_options(nova_project_options INTERFACE
   -Wall
   -Wextra

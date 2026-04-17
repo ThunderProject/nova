@@ -5,6 +5,7 @@ add_executable(nova_dicom_tests
 )
 
 target_compile_features(nova_dicom_tests PRIVATE cxx_std_23)
+nova_enable_unity_build(nova_dicom_tests)
 
 target_link_libraries(nova_dicom_tests
     PRIVATE
