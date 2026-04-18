@@ -1,9 +1,10 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
-#include <expected>
 #include <string>
 #include <string_view>
+#include <vector>
 #include "core/result.h"
 
 namespace nova::dicom {
@@ -139,6 +140,58 @@ namespace nova::dicom {
         patient patient;
         study study;
         series series;
+    };
+
+    enum class photometric_interpretation : uint8_t {
+        monochrome1,
+        monochrome2,
+        palette_color,
+        rgb,
+        hsv,
+        argb,
+        cmyk,
+        ybr_full,
+        ybr_full_422,
+        ybr_partial_422,
+        ybr_partial_420,
+        ybr_ict,
+        ybr_rct,
+    };
+
+    enum class pixel_sample_format : uint8_t {
+        unknown,
+        u8,
+        s8,
+        u16,
+        s16,
+        u32,
+        s32,
+    };
+
+    struct image_dimensions final {
+        uint32_t width{};
+        uint32_t height{};
+        uint32_t frames{1};
+    };
+
+    struct pixel_data_info {
+        image_dimensions dims;
+        uint16_t samples_per_pixel;
+        uint16_t planar_configuraion;
+        uint16_t bits_allocated{};
+        uint16_t bits_stored{};
+        uint16_t high_bit{};
+        photometric_interpretation photometric;
+        pixel_sample_format format{pixel_sample_format::unknown};
+
+        [[nodiscard]] std::size_t pixel_count() const noexcept {
+            return static_cast<size_t>(dims.width) * static_cast<size_t>(dims.height) * static_cast<size_t>(dims.frames);
+        }
+    };
+
+    struct pixel_buffer {
+        pixel_data_info info{};
+        std::vector<std::byte> buffer;
     };
 
     [[nodiscard]] dicom_tag_data resolve_dicom_tag(dicom_tag tag);

@@ -12,6 +12,7 @@ class ExampleRecipe(ConanFile):
         self.requires("libassert/2.2.1")
         self.requires("quill/11.0.2")
         self.requires("magic_enum/0.9.7")
+        self.requires("unordered_dense/4.8.1")
 
     def layout(self):
         cmake_layout(self)
