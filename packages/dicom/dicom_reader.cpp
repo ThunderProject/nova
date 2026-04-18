@@ -1,4 +1,5 @@
 #include "dicom_reader.h"
+#include "core/hash_map.h"
 #include "core/result.h"
 #include "dicom.h"
 #include <assert.hpp>
@@ -12,6 +13,7 @@
 #include <magic_enum/magic_enum.hpp>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 
 using namespace nova::dicom;
@@ -97,6 +99,21 @@ public:
         };
     }
 
+    [[nodiscard]] nova::result<pixel_buffer> read_pixel_data() const noexcept {
+        if(!is_loaded()) [[unlikely]] {
+            logger::error("unable to read pixeldata. Reason: no dicom file loaded");
+        }
+
+        auto photometric = resolve_photometric(read_tag(dicom_tag::photometric_interpretation));
+        if(!photometric) {
+            logger::error("{}", photometric.error());
+            return nova::err();
+        }
+        logger::info("photometric_interpretation: {}", *photometric);
+
+        return {};
+    }
+
     void clear() noexcept {
         m_file.reset();
         m_file_path.clear();
@@ -110,6 +127,28 @@ public:
         return m_file_path;
     }
 private:
+    [[nodiscard]] static nova::result<photometric_interpretation> resolve_photometric(std::string_view value) noexcept {
+        const nova::hash_map<std::string_view, photometric_interpretation> photometric_map {
+            { "MONOCHROME1", photometric_interpretation::monochrome1 },
+            { "MONOCHROME2", photometric_interpretation::monochrome2 },
+            { "PALETTE COLOR", photometric_interpretation::palette_color },
+            { "RGB", photometric_interpretation::rgb },
+            { "HSV", photometric_interpretation::hsv },
+            { "ARGB", photometric_interpretation::argb },
+            { "CMYK", photometric_interpretation::cmyk },
+            { "YBR_FULL", photometric_interpretation::ybr_full },
+            { "YBR_FULL_422", photometric_interpretation::ybr_full_422 },
+            { "YBR_PARTIAL_422", photometric_interpretation::ybr_partial_422 },
+            { "YBR_PARTIAL_420", photometric_interpretation::ybr_partial_420 },
+            { "YBR_ICT", photometric_interpretation::ybr_ict },
+            { "YBR_RCT", photometric_interpretation::ybr_rct },
+        };
+
+        return photometric_map.contains(value)
+            ? nova::result<photometric_interpretation>(photometric_map.at(value))
+            : nova::err("failed to resolve photometric interpretation from dicom file");
+    }
+
     std::unique_ptr<DcmFileFormat> m_file{nullptr};
     std::filesystem::path m_file_path;
 };
@@ -125,4 +164,8 @@ nova::result<nova::ok> dicom_reader::load(const std::filesystem::path& path) {
 
 metadata dicom_reader::read_metadata() {
     return m_impl->read_metadata();
+}
+
+nova::result<pixel_buffer> dicom_reader::read_pixel_data() const noexcept {
+    return m_impl->read_pixel_data();
 }

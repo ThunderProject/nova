@@ -22,6 +22,7 @@ target_link_libraries(nova_dicom
     libassert::assert
     nova_logging
     quill::quill
+    nova_core
     PRIVATE
     nova_project_options
     magic_enum::magic_enum

@@ -17,6 +17,7 @@ namespace nova::dicom {
 
         nova::result<ok> load(const std::filesystem::path& path);
         [[nodiscard]] metadata read_metadata();
+        [[nodiscard]] nova::result<pixel_buffer> read_pixel_data() const noexcept;
     private:
         class impl;
         nova::indirect<impl> m_impl;

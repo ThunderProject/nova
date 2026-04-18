@@ -10,7 +10,7 @@ namespace nova {
     using result = std::expected<T, Err>;
 
     template <class Err = std::string>
-    [[nodiscard]] constexpr std::unexpected<std::decay_t<Err>> err(Err&& error) {
+    [[nodiscard]] constexpr std::unexpected<std::decay_t<Err>> err(Err&& error = Err()) {
         return std::unexpected<std::decay_t<Err>>(std::forward<Err>(error));
     }
 }
