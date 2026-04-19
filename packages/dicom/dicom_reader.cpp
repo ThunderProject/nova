@@ -104,8 +104,13 @@ public:
         return m_file->getDataset();
     }
 
-    [[nodiscard]] metadata read_metadata() const {
-        return {
+    [[nodiscard]] nova::result<metadata> read_metadata() const {
+        if(!is_loaded()) [[unlikely]] {
+            logger::error("unable to read metadata. Reason: no dicom file loaded");
+            return nova::err();
+        }
+
+        return metadata {
             .patient{
                 .name = read_tag(dicom_tag::patient_name),
                 .id = read_tag(dicom_tag::patient_id),
@@ -135,7 +140,7 @@ public:
                 .modality = [this] -> modality {
                     const auto result = resolve_modality(read_tag(dicom_tag::series_modality));
                     if(result) {
-                        return result.value();
+                        return *result;
                     }
                     logger::error("Failed to read dicom modality: {}", result.error());
                     return modality::Unknown;
@@ -388,11 +393,11 @@ dicom_reader::dicom_reader(dicom_reader&&) noexcept = default;
 auto dicom_reader::operator=(dicom_reader&&) noexcept -> dicom_reader& = default;
 dicom_reader::~dicom_reader() = default;
 
-nova::result<nova::ok> dicom_reader::load(const std::filesystem::path& path) {
+nova::result<nova::ok> dicom_reader::load(const std::filesystem::path& path) noexcept {
     return m_impl->load(path);
 }
 
-metadata dicom_reader::read_metadata() {
+nova::result<metadata> dicom_reader::read_metadata() const noexcept {
     return m_impl->read_metadata();
 }
 

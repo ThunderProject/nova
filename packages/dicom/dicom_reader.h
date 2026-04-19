@@ -1,9 +1,9 @@
 #pragma once
 
 #include "core/indirect.h"
+#include "core/result.h"
 #include "dicom.h"
 #include <filesystem>
-#include "core/result.h"
 
 namespace nova::dicom {
     class dicom_reader final {
@@ -15,8 +15,8 @@ namespace nova::dicom {
         auto operator=(dicom_reader&&) noexcept -> dicom_reader&;
         ~dicom_reader();
 
-        nova::result<ok> load(const std::filesystem::path& path);
-        [[nodiscard]] metadata read_metadata();
+        nova::result<ok> load(const std::filesystem::path& path) noexcept;
+        [[nodiscard]] nova::result<metadata> read_metadata() const noexcept;
         [[nodiscard]] nova::result<pixel_buffer> read_pixel_data() const noexcept;
     private:
         class impl;

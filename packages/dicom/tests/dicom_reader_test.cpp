@@ -29,6 +29,7 @@ TEST_CASE("Dicom reader") {
         SECTION("Valid path should succeed") {
             const std::filesystem::path dcm = test_data_dir/"CTHead1.dcm";
             const auto result = m_reader.load(dcm);
+
             CHECK(result.has_value());
         }
     }
@@ -36,13 +37,14 @@ TEST_CASE("Dicom reader") {
         const std::filesystem::path dcm = test_data_dir/"CTHead1.dcm";
         const auto _ = m_reader.load(dcm);
         const auto metadata = m_reader.read_metadata();
-        SUCCEED();
+
+        CHECK(metadata.has_value());
     }
     SECTION("Read pixelbuffer") {
         const std::filesystem::path dcm = test_data_dir/"CTHead1.dcm";
         const auto _ = m_reader.load(dcm);
         const auto pixel_data = m_reader.read_pixel_data();
 
-        REQUIRE(pixel_data.has_value());
+        CHECK(pixel_data.has_value());
     }
 }
