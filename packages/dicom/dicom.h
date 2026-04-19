@@ -52,6 +52,8 @@ namespace nova::dicom {
         image_orientation,
         slice_location,
         pixel_spacing,
+        number_of_frames,
+        planar_configuration,
         window_center,
         window_width,
         rescale_intercept,
@@ -159,9 +161,7 @@ namespace nova::dicom {
     };
 
     enum class pixel_sample_format : uint8_t {
-        unknown,
         u8,
-        s8,
         u16,
         s16,
         u32,
@@ -177,12 +177,12 @@ namespace nova::dicom {
     struct pixel_data_info {
         image_dimensions dims;
         uint16_t samples_per_pixel;
-        uint16_t planar_configuraion;
+        uint16_t planar_configuration;
         uint16_t bits_allocated{};
         uint16_t bits_stored{};
         uint16_t high_bit{};
         photometric_interpretation photometric;
-        pixel_sample_format format{pixel_sample_format::unknown};
+        pixel_sample_format format;
 
         [[nodiscard]] std::size_t pixel_count() const noexcept {
             return static_cast<size_t>(dims.width) * static_cast<size_t>(dims.height) * static_cast<size_t>(dims.frames);

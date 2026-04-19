@@ -198,6 +198,14 @@ dicom_tag_data nova::dicom::resolve_dicom_tag(dicom_tag tag) {
             .group = 0x0008,
             .element = 0x0031
         };
+        case dicom_tag::number_of_frames: return {
+            .group = 0x0028,
+            .element = 0x0008
+        };
+        case dicom_tag::planar_configuration: return {
+            .group = 0x0028,
+            .element = 0x0006
+        };
     }
 }
 
