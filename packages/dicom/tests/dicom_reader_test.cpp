@@ -36,8 +36,6 @@ TEST_CASE("Dicom reader") {
         const std::filesystem::path dcm = test_data_dir/"CTHead1.dcm";
         const auto _ = m_reader.load(dcm);
         const auto metadata = m_reader.read_metadata();
-        auto a = m_reader.read_pixel_data();
-
         SUCCEED();
     }
     SECTION("Read pixelbuffer") {
