@@ -180,19 +180,6 @@ public:
             .format = *format
         };
 
-        logger::info("width: {}\n height: {}\n frames: {}\n samples_per_pixel: {}\n"
-            "planar_configuration: {}\n bits_allocated: {}\n bits_stored: {}\n high_bit: {}\n photometric: {}\n format: {}\n",
-            info.dims.width,
-            info.dims.height,
-            info.dims.frames,
-            info.samples_per_pixel,
-            info.planar_configuration,
-            info.bits_allocated,
-            info.bits_stored,
-            info.high_bit,
-            magic_enum::enum_name(info.photometric),
-            magic_enum::enum_name(info.format)
-        );
         auto buffer = [&info, this]() {
             switch (info.format) {
                 case pixel_sample_format::u8: return read_pixel_buffer<pixel_sample_format::u8>(info.pixel_count());

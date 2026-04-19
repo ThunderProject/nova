@@ -2,6 +2,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <nlohmann/detail/macro_scope.hpp>
+#include <nlohmann/detail/meta/type_traits.hpp>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -113,6 +115,14 @@ namespace nova::dicom {
         std::string birth_date;
         std::string birth_time;
         std::string sex;
+
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(patient,
+            name,
+            id,
+            birth_date,
+            birth_time,
+            sex
+        )
     };
 
     struct study {
@@ -123,6 +133,16 @@ namespace nova::dicom {
         std::string accession_number;
         std::string description;
         std::string referring_physician_name;
+
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(study,
+            instance_uid,
+            id,
+            date,
+            time,
+            accession_number,
+            description,
+            referring_physician_name
+        )
     };
 
     struct series {
@@ -136,12 +156,27 @@ namespace nova::dicom {
         std::string smallest_pixel_value;
         std::string largest_pixel_value;
         modality modality;
+
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(series,
+            instance_uid,
+            date,
+            time,
+            description,
+            number,
+            body_part_examined,
+            performing_physician_name,
+            smallest_pixel_value,
+            largest_pixel_value,
+            modality
+        )
     };
 
     struct metadata {
         patient patient;
         study study;
         series series;
+
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(metadata, patient, study, series)
     };
 
     enum class photometric_interpretation : uint8_t {
@@ -172,6 +207,8 @@ namespace nova::dicom {
         uint32_t width{};
         uint32_t height{};
         uint32_t frames{1};
+
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(image_dimensions, width, height, frames)
     };
 
     struct pixel_data_info {
@@ -187,6 +224,16 @@ namespace nova::dicom {
         [[nodiscard]] std::size_t pixel_count() const noexcept {
             return static_cast<size_t>(dims.width) * static_cast<size_t>(dims.height) * static_cast<size_t>(dims.frames);
         }
+
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(pixel_data_info, dims,
+            samples_per_pixel,
+            planar_configuration,
+            bits_allocated,
+            bits_stored,
+            high_bit,
+            photometric,
+            format
+        )
     };
 
     struct pixel_buffer {
