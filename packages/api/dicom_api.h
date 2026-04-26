@@ -50,9 +50,8 @@ namespace nova::ffi::dicom {
         std::uint16_t bits_stored;
         std::uint16_t high_bit;
         std::uint16_t planar_configuration;
-        std::int32_t pixel_representation;
-        std::int32_t photometric_interpretation;
-        std::int32_t sample_format;
+        std::string photometric_interpretation;
+        std::uint8_t sample_format;
     };
 
     struct PixelBuffer final {
@@ -67,7 +66,7 @@ namespace nova::ffi::dicom {
 
         void load(const std::string& path);
         [[nodiscard]] Metadata read_metadata() const;
-        //[[nodiscard]] RustPixelBuffer read_pixel_data() const;
+        [[nodiscard]] PixelBuffer read_pixel_data() const;
     private:
         nova::dicom::dicom_reader m_reader;
     };

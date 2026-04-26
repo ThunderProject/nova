@@ -290,13 +290,13 @@ private:
     using pixel_reader_fnc_ptr = OFCondition(DcmItem::*)(const DcmTagKey&, const T*& value, unsigned long*, const OFBool);
 
     template<pixel_sample_format sampleFormat>
-    [[nodiscard]] nova::result<std::vector<std::byte>> read_pixel_buffer(size_t expected_count) const noexcept {
+    [[nodiscard]] nova::result<std::vector<std::uint8_t>> read_pixel_buffer(size_t expected_count) const noexcept {
         auto* dataset = this->dataset();
         DEBUG_ASSERT(dataset != nullptr);
 
         using T = ::format_type_mapper_t<sampleFormat>;
 
-        const auto pixel_reader_lambda = [&dataset, &expected_count]<class Type>(pixel_reader_fnc_ptr<Type> reader) noexcept -> nova::result<std::vector<std::byte>> {
+        const auto pixel_reader_lambda = [&dataset, &expected_count]<class Type>(pixel_reader_fnc_ptr<Type> reader) noexcept -> nova::result<std::vector<std::uint8_t>> {
             DEBUG_ASSERT(reader != nullptr);
 
             const Type* src = nullptr;
@@ -313,7 +313,7 @@ private:
                 return nova::err();
             }
 
-            std::vector<std::byte> bytes(expected_count * sizeof(T));
+            std::vector<std::uint8_t> bytes(expected_count * sizeof(T));
             std::memcpy(bytes.data(), src, bytes.size());
             return bytes;
         };

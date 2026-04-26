@@ -161,7 +161,7 @@ namespace nova::dicom {
     };
 
     enum class pixel_sample_format : uint8_t {
-        u8,
+        u8 = 0,
         u16,
         s16,
         u32,
@@ -191,7 +191,7 @@ namespace nova::dicom {
 
     struct pixel_buffer {
         pixel_data_info info{};
-        std::vector<std::byte> buffer;
+        std::vector<std::uint8_t> buffer;
     };
 
     [[nodiscard]] dicom_tag_data resolve_dicom_tag(dicom_tag tag);
