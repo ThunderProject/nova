@@ -1,0 +1,9 @@
+[package]
+name = "nova_render"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy =  { version = "0.18.1" }
+mimalloc = { version = "0.1", default-features = false }
+bytemuck = "1.16"
