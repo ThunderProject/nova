@@ -56,8 +56,7 @@
     };
 }
 
-[[nodiscard]] nova::ffi::dicom::PixelBuffer
-to_api_pixel_buffer(nova::dicom::pixel_buffer&& value) {
+[[nodiscard]] nova::ffi::dicom::PixelBuffer to_api_pixel_buffer(nova::dicom::pixel_buffer&& value) {
     return {
         .info = to_api_pixel_info(value.info),
         .data = std::move(value.buffer),
@@ -81,10 +80,9 @@ nova::ffi::dicom::Metadata nova::ffi::dicom::dicom_api::read_metadata() const {
 }
 
 nova::ffi::dicom::PixelBuffer  nova::ffi::dicom::dicom_api::read_pixel_data() const {
-    const auto result = m_reader.read_pixel_data();
+    auto result = m_reader.read_pixel_data();
     if(!result) {
         throw std::runtime_error("Failed to read DICOM pixeldata");
     }
-
     return to_api_pixel_buffer(std::move(*result));
 }
