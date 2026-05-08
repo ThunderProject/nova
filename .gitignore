@@ -33,3 +33,5 @@ packages/build/
 packages/target/
 *.lock
 packages/testing/Temporary/
+nova_ui/bin/
+nova_ui/obj/

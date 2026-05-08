@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
+import tomllib
+
 
 class Config(Enum):
     DEBUG = "Debug"
@@ -31,12 +33,10 @@ def normalize_name(value: str) -> str:
 
 
 def ensure_workspace_root() -> None:
-    required = ["conanfile.py", "CMakeLists.txt"]
+    required = ["deps.toml", "CMakeLists.txt"]
     for item in required:
         if not Path(item).exists():
-            raise RuntimeError(
-                f"run this from the packages/ workspace root; missing '{item}'"
-            )
+            raise RuntimeError(f"run this from the packages/ workspace root; missing '{item}'")
 
 
 def run_command(program: str, args: list[str]) -> None:
@@ -71,8 +71,7 @@ def capture_command(program: str, args: list[str]) -> str:
         stderr = completed.stderr.strip()
         raise RuntimeError(
             f"command failed with status {completed.returncode}: "
-            f"{program} {' '.join(args)}"
-            + (f"\n{stderr}" if stderr else "")
+            f"{program} {' '.join(args)}" + (f"\n{stderr}" if stderr else "")
         )
 
     return completed.stdout
@@ -197,7 +196,14 @@ def extract_targets_from_cmakelists(cmakelists: Path) -> list[str]:
     for pattern in patterns:
         for match in re.finditer(pattern, text, flags=re.IGNORECASE):
             target = match.group(1)
-            if target.upper() in {"STATIC", "SHARED", "MODULE", "OBJECT", "INTERFACE", "ALIAS"}:
+            if target.upper() in {
+                "STATIC",
+                "SHARED",
+                "MODULE",
+                "OBJECT",
+                "INTERFACE",
+                "ALIAS",
+            }:
                 continue
             if target not in seen:
                 seen.add(target)
@@ -224,6 +230,7 @@ def resolve_target_for_package(package_dir: Path, query: str) -> str:
     raise RuntimeError(
         f"multiple targets found in {package_dir / 'CMakeLists.txt'}: {', '.join(targets)}"
     )
+
 
 def list_build_targets(build_dir: str) -> list[str]:
     output = capture_command("cmake", ["--build", build_dir, "--target", "help"])
@@ -254,22 +261,59 @@ def list_build_targets(build_dir: str) -> list[str]:
 
     return sorted(targets)
 
+
+def read_dependencies(deps_file: Path = Path("deps.toml")) -> list[str]:
+    if not deps_file.exists():
+        raise RuntimeError(f"missing dependency file '{deps_file}'")
+
+    with deps_file.open("rb") as file:
+        data = tomllib.load(file)
+
+    dependencies = data.get("dependencies")
+    if not isinstance(dependencies, dict):
+        raise RuntimeError("deps.toml must contain a [dependencies] table")
+
+    requires: list[str] = []
+
+    for name, version in sorted(dependencies.items()):
+        if not isinstance(name, str) or not isinstance(version, str):
+            raise RuntimeError(
+                "[dependencies] entries must be string = string, "
+                'for example catch2 = "3.13.0"'
+            )
+
+        requires.append(f"{name}/{version}")
+
+    return requires
+
+
 def maybe_run_conan_fetch(config: Config) -> None:
-    run_command(
-        "conan",
-        [
-            "install",
-            ".",
-            "--build=missing",
-            "-s",
-            f"build_type={config.as_str}",
-        ],
-    )
+    requires = read_dependencies()
+
+    args = [
+        "install",
+        "--build=missing",
+        "-s",
+        f"build_type={config.as_str}",
+        "-g",
+        "CMakeDeps",
+        "-g",
+        "CMakeToolchain",
+        "-of",
+        f"build/{config.as_str}/generators",
+    ]
+
+    for requirement in requires:
+        args.append(f"--requires={requirement}")
+
+    run_command("conan", args)
 
 
 def configure_cmake(config: Config, fetch: bool) -> str:
     cmake_build_dir = f"build/{config.as_str}/cmake"
-    toolchain_file = Path(f"build/{config.as_str}/generators/conan_toolchain.cmake")
+
+    generators_dir = Path(f"build/{config.as_str}/generators").resolve()
+    toolchain_file = generators_dir / "conan_toolchain.cmake"
 
     args = [
         "-S",
@@ -278,12 +322,19 @@ def configure_cmake(config: Config, fetch: bool) -> str:
         cmake_build_dir,
         "-G",
         "Ninja",
+        "-DCMAKE_C_COMPILER=/usr/bin/clang",
+        "-DCMAKE_CXX_COMPILER=/usr/bin/clang++",
         f"-DCMAKE_BUILD_TYPE={config.as_str}",
         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
     ]
 
     if toolchain_file.exists():
-        args.append(f"-DCMAKE_TOOLCHAIN_FILE={toolchain_file}")
+        args.extend(
+            [
+                f"-DCMAKE_TOOLCHAIN_FILE={toolchain_file}",
+                f"-DCMAKE_PREFIX_PATH={generators_dir}",
+            ]
+        )
     elif fetch:
         raise RuntimeError(
             f"expected Conan toolchain at '{toolchain_file}', but it was not generated"
