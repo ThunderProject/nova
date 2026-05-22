@@ -1,12 +1,20 @@
 #include "dicom_api.h"
+#include "dicom/dicom_reader.h"
 #include "dicom/dicom.h"
 #include <cstdint>
 #include <filesystem>
 #include <format>
 #include <magic_enum/magic_enum.hpp>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <utility>
+
+nova::ffi::dicom::dicom_api::dicom_api()
+    :
+    m_reader(std::make_unique<nova::dicom::dicom_reader>())
+{}
+nova::ffi::dicom::dicom_api::~dicom_api() = default;
 
 [[nodiscard]] nova::ffi::dicom::Metadata to_api_metadata(const nova::dicom::metadata& value) {
     return {
@@ -65,24 +73,28 @@
 
 void nova::ffi::dicom::dicom_api::load(const std::string& path) {
     const auto fs_path = std::filesystem::path(path);
-    const auto result = m_reader.load(fs_path);
+    const auto result = m_reader->load(fs_path);
     if(!result) {
         throw std::runtime_error(std::format("Failed to load DICOM file {}", fs_path.filename().string()));
     }
 }
 
-nova::ffi::dicom::Metadata nova::ffi::dicom::dicom_api::read_metadata() const {
-    const auto result = m_reader.read_metadata();
+std::unique_ptr<nova::ffi::dicom::Metadata> nova::ffi::dicom::dicom_api::read_metadata() const {
+    const auto result = m_reader->read_metadata();
     if(!result) {
         throw std::runtime_error("Failed to read DICOM metadata");
     }
-    return to_api_metadata(*result);
+    return std::make_unique<nova::ffi::dicom::Metadata>(to_api_metadata(*result));
 }
 
-nova::ffi::dicom::PixelBuffer  nova::ffi::dicom::dicom_api::read_pixel_data() const {
-    auto result = m_reader.read_pixel_data();
+std::unique_ptr<nova::ffi::dicom::PixelBuffer> nova::ffi::dicom::dicom_api::read_pixel_data() const {
+    auto result = m_reader->read_pixel_data();
     if(!result) {
         throw std::runtime_error("Failed to read DICOM pixeldata");
     }
-    return to_api_pixel_buffer(std::move(*result));
+    return std::make_unique<nova::ffi::dicom::PixelBuffer>(to_api_pixel_buffer(std::move(*result)));
+}
+
+[[nodiscard]] std::unique_ptr<nova::ffi::dicom::dicom_api> nova::ffi::dicom::dicom_api_create() {
+    return std::make_unique<dicom_api>();
 }

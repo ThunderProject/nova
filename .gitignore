@@ -35,3 +35,4 @@ packages/target/
 packages/testing/Temporary/
 nova_ui/bin/
 nova_ui/obj/
+target/

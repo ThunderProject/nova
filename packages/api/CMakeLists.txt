@@ -1,4 +1,4 @@
-add_library(nova_api
+add_library(nova_api SHARED
     dicom_api.cpp
 )
 
@@ -16,13 +16,12 @@ find_package(magic_enum REQUIRED)
 
 target_link_libraries(nova_api
     PUBLIC
-    quill::quill
-    libassert::assert
-    PRIVATE
-    nova_project_options
-    magic_enum::magic_enum
-)
+        quill::quill
+        libassert::assert
 
-# if(NOVA_BUILD_TESTS)
-#     add_subdirectory(tests)
-# endif()
+    PRIVATE
+        nova_project_options
+        nova_dicom
+        nova_logging
+        magic_enum::magic_enum
+)

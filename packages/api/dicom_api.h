@@ -1,7 +1,11 @@
-#include "dicom/dicom_reader.h"
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
+
+namespace nova::dicom {
+    class dicom_reader;
+}
 
 namespace nova::ffi::dicom {
     struct Patient final {
@@ -61,13 +65,15 @@ namespace nova::ffi::dicom {
 
     class dicom_api final {
     public:
-        dicom_api() = default;
-        ~dicom_api() = default;
+        dicom_api();
+        ~dicom_api();
 
         void load(const std::string& path);
-        [[nodiscard]] Metadata read_metadata() const;
-        [[nodiscard]] PixelBuffer read_pixel_data() const;
+        [[nodiscard]] std::unique_ptr<Metadata> read_metadata() const;
+        [[nodiscard]] std::unique_ptr<PixelBuffer> read_pixel_data() const;
     private:
-        nova::dicom::dicom_reader m_reader;
+        std::unique_ptr<nova::dicom::dicom_reader> m_reader;
     };
+
+    [[nodiscard]] std::unique_ptr<dicom_api> dicom_api_create();
 }
