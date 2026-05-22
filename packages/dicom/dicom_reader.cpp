@@ -149,9 +149,47 @@ public:
         };
     }
 
-    [[nodiscard]] nova::result<pixel_buffer> read_pixel_data() const noexcept {
+    [[nodiscard]] nova::result<std::vector<std::uint8_t>> read_pixel_data() const noexcept {
         if(!is_loaded()) [[unlikely]] {
             logger::error("unable to read pixeldata. Reason: no dicom file loaded");
+            return nova::err();
+        }
+
+        const auto pixel_representation = read_tag<uint16_t>(dicom_tag::pixel_representation);
+        const auto bits_allocated = read_tag<uint16_t>(dicom_tag::bits_allocated);
+        const auto format = resolve_pixel_sample_format(bits_allocated, pixel_representation);
+        if(!format) {
+            logger::error("{}", format.error());
+            return nova::err();
+        }
+
+        auto buffer = [&format, this]() {
+            const auto width = read_tag<uint16_t>(dicom_tag::columns);
+            const auto height = read_tag<uint16_t>(dicom_tag::rows);
+            const auto frames = read_tag<uint16_t>(dicom_tag::number_of_frames, 1);
+            const auto pixel_count = static_cast<size_t>(width) * static_cast<size_t>(height) * static_cast<size_t>(frames);
+
+            switch (*format) {
+                case pixel_sample_format::u8: return read_pixel_buffer<pixel_sample_format::u8>(pixel_count);
+                case pixel_sample_format::u16: return read_pixel_buffer<pixel_sample_format::u16>(pixel_count);
+                case pixel_sample_format::s16:return read_pixel_buffer<pixel_sample_format::s16>(pixel_count);
+                case pixel_sample_format::u32:return read_pixel_buffer<pixel_sample_format::u32>(pixel_count);
+                case pixel_sample_format::s32:return read_pixel_buffer<pixel_sample_format::s32>(pixel_count);
+                default: UNREACHABLE();
+            }
+        }();
+
+        if(!buffer) {
+            logger::error("Failed to read pixel buffer");
+            return nova::err();
+        }
+
+        return *buffer;
+    }
+
+    [[nodiscard]] nova::result<pixel_data_info> read_pixel_data_info() const noexcept {
+        if(!is_loaded()) [[unlikely]] {
+            logger::error("unable to read pixeldata info. Reason: no dicom file loaded");
             return nova::err();
         }
 
@@ -185,26 +223,7 @@ public:
             .format = *format
         };
 
-        auto buffer = [&info, this]() {
-            switch (info.format) {
-                case pixel_sample_format::u8: return read_pixel_buffer<pixel_sample_format::u8>(info.pixel_count());
-                case pixel_sample_format::u16: return read_pixel_buffer<pixel_sample_format::u16>(info.pixel_count());
-                case pixel_sample_format::s16:return read_pixel_buffer<pixel_sample_format::s16>(info.pixel_count());
-                case pixel_sample_format::u32:return read_pixel_buffer<pixel_sample_format::u32>(info.pixel_count());
-                case pixel_sample_format::s32:return read_pixel_buffer<pixel_sample_format::s32>(info.pixel_count());
-                default: UNREACHABLE();
-            }
-        }();
-
-        if(!buffer) {
-            logger::error("Failed to read pixel buffer");
-            return nova::err();
-        }
-
-        return pixel_buffer {
-            .info = info,
-            .buffer = std::move(*buffer)
-        };
+        return info;
     }
 
     void clear() noexcept {
@@ -390,7 +409,7 @@ private:
 
 dicom_reader::dicom_reader() = default;
 dicom_reader::dicom_reader(dicom_reader&&) noexcept = default;
-auto dicom_reader::operator=(dicom_reader&&) noexcept -> dicom_reader& = default;
+dicom_reader& dicom_reader::operator=(dicom_reader&&) noexcept = default;
 dicom_reader::~dicom_reader() = default;
 
 nova::result<nova::ok> dicom_reader::load(const std::filesystem::path& path) noexcept {
@@ -401,6 +420,10 @@ nova::result<metadata> dicom_reader::read_metadata() const noexcept {
     return m_impl->read_metadata();
 }
 
-nova::result<pixel_buffer> dicom_reader::read_pixel_data() const noexcept {
+nova::result<std::vector<std::uint8_t>> dicom_reader::read_pixel_data() const noexcept {
     return m_impl->read_pixel_data();
+}
+
+nova::result<pixel_data_info> dicom_reader::read_pixel_data_info() const noexcept {
+    return m_impl->read_pixel_data_info();
 }
