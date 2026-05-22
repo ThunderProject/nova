@@ -189,11 +189,6 @@ namespace nova::dicom {
         }
     };
 
-    struct pixel_buffer {
-        pixel_data_info info{};
-        std::vector<std::uint8_t> buffer;
-    };
-
     [[nodiscard]] dicom_tag_data resolve_dicom_tag(dicom_tag tag);
     [[nodiscard]] nova::result<modality> resolve_modality(std::string_view modality);
 }
