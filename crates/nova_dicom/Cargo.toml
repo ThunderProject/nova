@@ -14,7 +14,10 @@ workspace = true
 bytemuck.workspace = true
 mimalloc.workspace = true
 cxx.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
+anyhow.workspace = true
 
 [build-dependencies]
 cxx-build.workspace = true

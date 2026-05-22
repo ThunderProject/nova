@@ -1,7 +1,13 @@
 pub mod bridge;
 
 pub use bridge::dicom_bridge::{
+    DicomError,
     DicomReader,
     Metadata,
-    PixelBuffer,
+    Patient,
+    PixelData,
+    PixelDataInfo,
+    Result,
+    Series,
+    Study,
 };
