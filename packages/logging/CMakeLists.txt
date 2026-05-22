@@ -1,4 +1,4 @@
-add_library(nova_logging
+add_library(nova_logging SHARED
     logger.cpp
 )
 

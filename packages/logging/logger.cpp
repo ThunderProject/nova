@@ -73,26 +73,31 @@ void nova::logger::set_log_callback(logFunc cb) {
 }
 
 void nova::logger::debug(std::string_view message) {
-    DEBUG_ASSERT(logger_instance != nullptr);
-    LOG_DEBUG(logger_instance, "{}", message);
+    if(logger_instance != nullptr) {
+        LOG_DEBUG(logger_instance, "{}", message);
+    }
 }
 
 void nova::logger::info(std::string_view message) {
-    DEBUG_ASSERT(logger_instance != nullptr);
-    LOG_INFO(logger_instance, "{}", message);
+    if(logger_instance != nullptr) {
+        LOG_INFO(logger_instance, "{}", message);
+    }
 }
 
 void nova::logger::warn(std::string_view message) {
-    DEBUG_ASSERT(logger_instance != nullptr);
-    LOG_WARNING(logger_instance, "{}", message);
+    if(logger_instance != nullptr) {
+        LOG_WARNING(logger_instance, "{}", message);
+    }
 }
 
 void nova::logger::error(std::string_view message) {
-    DEBUG_ASSERT(logger_instance != nullptr);
-    LOG_ERROR(logger_instance, "{}", message);
+    if(logger_instance != nullptr) {
+        LOG_ERROR(logger_instance, "{}", message);
+    }
 }
 
 void nova::logger::fatal(std::string_view message) {
-    DEBUG_ASSERT(logger_instance != nullptr);
-    LOG_CRITICAL(logger_instance, "{}", message);
+    if(logger_instance != nullptr) {
+        LOG_CRITICAL(logger_instance, "{}", message);
+    }
 }
