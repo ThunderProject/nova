@@ -6,8 +6,7 @@ use super::{
     messages::ViewportCommand,
     systems::{
         apply_viewport_layout, focus_viewport_from_click, handle_viewport_commands,
-        refresh_viewport_layout_on_resize, spawn_viewport_focus_outline, sync_focus_outline,
-        update_focus_visuals,
+        refresh_viewport_layout_on_resize, spawn_viewport_focus_outline, sync_focus_outline
     },
 };
 
@@ -29,7 +28,6 @@ impl Plugin for NovaViewportPlugin {
                     viewport_zoom,
                     viewport_reset,
                     handle_viewport_commands,
-                    update_focus_visuals,
                     sync_focus_outline,
                 )
                     .chain(),
