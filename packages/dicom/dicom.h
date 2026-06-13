@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
-#include <vector>
 #include "core/result.h"
 
 namespace nova::dicom {
@@ -145,7 +144,7 @@ namespace nova::dicom {
     };
 
     enum class photometric_interpretation : uint8_t {
-        monochrome1,
+        monochrome1 = 0,
         monochrome2,
         palette_color,
         rgb,

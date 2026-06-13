@@ -1,6 +1,11 @@
-use std::{path::{Path, PathBuf}, time::Instant};
+use std::{
+    path::{Path, PathBuf},
+    time::Instant,
+};
 
-use nova_dicom::file_loader::dicom_file_loader::{process_directory, process_file};
+use nova_dicom::{
+    dicom::{Modality, PixelDataInfo}, file_loader::dicom_file_loader::{process_directory, process_file}
+};
 
 const TEST_DICOM_FILE: &str = "data/chest_ct/instance-0001.dcm";
 
@@ -9,7 +14,7 @@ fn init_tracing() {
         .with_test_writer()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "debug".into()),
+                .unwrap_or_else(|_| "info".into()),
         )
         .try_init();
 }
@@ -35,25 +40,62 @@ fn process_single_dicom_file() {
     );
 
     let start = Instant::now();
-    let dicom_file = process_file(&path).expect("expected DICOM file to load");
-    let elapsed_ms = start.elapsed().as_millis();
-
-    assert_eq!(dicom_file.path, path);
+    let dicom = process_file(&path).expect("expected DICOM file to load");
+    let elapsed = start.elapsed();
+    let elapsed_ms = elapsed.as_secs_f64() * 1000.0;
 
     assert!(
-        dicom_file.study_instance_uid.is_some(),
+        !dicom.metadata.study.instance_uid.is_empty(),
         "expected StudyInstanceUID"
     );
 
     assert!(
-        dicom_file.series_instance_uid.is_some(),
+        !dicom.metadata.series.instance_uid.is_empty(),
         "expected SeriesInstanceUID"
     );
 
+    assert_ne!(
+        dicom.metadata.series.modality,
+        Modality::Unknown,
+        "expected known modality"
+    );
+
+    assert!(
+        dicom.pixel_data_info.dims.width > 0,
+        "expected pixel width > 0"
+    );
+
+    assert!(
+        dicom.pixel_data_info.dims.height > 0,
+        "expected pixel height > 0"
+    );
+
+    assert!(
+        dicom.pixel_data_info.dims.frames > 0,
+        "expected frame count > 0"
+    );
+
+    assert!(
+        !dicom.pixel_data.is_empty(),
+        "expected pixel data"
+    );
+
+    assert_eq!(
+        dicom.pixel_data.len(),
+        expected_pixel_buffer_len(&dicom.pixel_data_info),
+        "pixel data length should match pixel metadata"
+    );
+
     tracing::info!(
-        elapsed_ms = elapsed_ms,
-        ?dicom_file,
-        "processed DICOM file"
+        elapsed_ms,
+        bytes = dicom.pixel_data.len(),
+        study_uid = %dicom.metadata.study.instance_uid,
+        series_uid = %dicom.metadata.series.instance_uid,
+        modality = ?dicom.metadata.series.modality,
+        width = dicom.pixel_data_info.dims.width,
+        height = dicom.pixel_data_info.dims.height,
+        frames = dicom.pixel_data_info.dims.frames,
+        "processed full DICOM file"
     );
 }
 
@@ -85,9 +127,86 @@ fn process_dicom_files_in_directory() {
         dir.display()
     );
 
+    let total_pixel_bytes: usize = files
+        .iter()
+        .map(|file| file.pixel_data.len())
+        .sum();
+
+    for file in &files {
+        assert!(
+            !file.metadata.study.instance_uid.is_empty(),
+            "expected StudyInstanceUID"
+        );
+
+        assert!(
+            !file.metadata.series.instance_uid.is_empty(),
+            "expected SeriesInstanceUID"
+        );
+
+        assert_ne!(
+            file.metadata.series.modality,
+            Modality::Unknown,
+            "expected known modality"
+        );
+
+        assert!(
+            file.pixel_data_info.dims.width > 0,
+            "expected pixel width > 0"
+        );
+
+        assert!(
+            file.pixel_data_info.dims.height > 0,
+            "expected pixel height > 0"
+        );
+
+        assert!(
+            file.pixel_data_info.dims.frames > 0,
+            "expected frame count > 0"
+        );
+
+        assert!(
+            file.pixel_data_info.samples_per_pixel > 0,
+            "expected samples_per_pixel > 0"
+        );
+
+        assert!(
+            file.pixel_data_info.bits_allocated > 0,
+            "expected bits_allocated > 0"
+        );
+
+        assert!(
+            !file.pixel_data.is_empty(),
+            "expected pixel data"
+        );
+
+        assert_eq!(
+            file.pixel_data.len(),
+            expected_pixel_buffer_len(&file.pixel_data_info),
+            "pixel data length should match pixel metadata"
+        );
+    }
+
+    let elapsed_ms = elapsed.as_secs_f64() * 1000.0;
+    let us_per_file = elapsed.as_secs_f64() * 1_000_000.0 / files.len() as f64;
+    let mib = total_pixel_bytes as f64 / (1024.0 * 1024.0);
+    let throughput_mib_s = mib / elapsed.as_secs_f64();
+
     tracing::info!(
         file_count = files.len(),
-        elapsed_ms = elapsed.as_millis(),
-        "processed DICOM directory"
+        elapsed_ms,
+        us_per_file,
+        total_pixel_bytes,
+        mib,
+        throughput_mib_s,
+        "processed full DICOM directory"
     );
+}
+
+fn expected_pixel_buffer_len(info: &PixelDataInfo) -> usize {
+    let pixel_count =
+        info.dims.width as usize * info.dims.height as usize * info.dims.frames as usize;
+
+    let bytes_per_sample = (info.bits_allocated as usize).div_ceil(8);
+
+    pixel_count * info.samples_per_pixel as usize * bytes_per_sample
 }

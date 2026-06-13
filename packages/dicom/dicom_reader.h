@@ -3,9 +3,9 @@
 #include "core/indirect.h"
 #include "core/result.h"
 #include "dicom.h"
-#include <cstdint>
+#include <cstddef>
 #include <filesystem>
-#include <vector>
+#include <span>
 
 namespace nova::dicom {
     class dicom_reader final {
@@ -20,7 +20,7 @@ namespace nova::dicom {
         nova::result<ok> load(const std::filesystem::path& path) noexcept;
         [[nodiscard]] nova::result<metadata> read_metadata() const noexcept;
         [[nodiscard]] nova::result<pixel_data_info> read_pixel_data_info() const noexcept;
-        [[nodiscard]] nova::result<std::vector<std::uint8_t>> read_pixel_data() const noexcept;
+        [[nodiscard]] nova::result<std::span<const std::byte>> read_pixel_data(const pixel_data_info& info) const noexcept;
     private:
         class impl;
         nova::indirect<impl> m_impl;
