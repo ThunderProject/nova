@@ -12,13 +12,13 @@
 #include <dcmdata/dctagkey.h>
 #include <exception>
 #include <filesystem>
-#include "hash_map.h"
 #include "logging/logger.h"
 #include <format>
 #include <magic_enum/magic_enum.hpp>
 #include <memory>
 #include <ofstd/ofcond.h>
 #include <ofstd/oftypes.h>
+#include <span>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -84,7 +84,8 @@ public:
             clear();
             auto file = std::make_unique<DcmFileFormat>();
 
-            const auto status = file->loadFile(path.string());
+            const auto path_string = path.string();
+            const auto status = file->loadFile(path_string.c_str());
             if(status.bad()) {
                 return nova::err(std::string(status.text()));
             }
@@ -149,42 +150,82 @@ public:
         };
     }
 
-    [[nodiscard]] nova::result<std::vector<std::uint8_t>> read_pixel_data() const noexcept {
-        if(!is_loaded()) [[unlikely]] {
+    template<pixel_sample_format sampleFormat>
+    [[nodiscard]] nova::result<std::span<const std::byte>> read_pixel_data(std::size_t expected_sample_count) const noexcept {
+        auto* dataset = this->dataset();
+        DEBUG_ASSERT(dataset != nullptr);
+
+        using T = ::format_type_mapper_t<sampleFormat>;
+
+        const auto read_array = [&]<class U>(pixel_reader_fnc_ptr<U> reader) noexcept -> nova::result<std::span<const std::byte>> {
+            DEBUG_ASSERT(reader != nullptr);
+
+            const U* src = nullptr;
+            unsigned long count = 0;
+
+            const auto status = (dataset->*reader)(
+                DCM_PixelData,
+                src,
+                &count,
+                OFFalse
+            );
+
+            if (status.bad() || src == nullptr) {
+                nova::logger::error("Failed to read dicom pixel data: {}", status.text());
+                return nova::err();
+            }
+
+            if (static_cast<std::size_t>(count) < expected_sample_count) {
+                nova::logger::error("pixel data shorter than expected");
+                return nova::err();
+            }
+
+            return std::as_bytes(std::span<const  U>{src, expected_sample_count});
+        };
+
+        if constexpr (std::is_same_v<T, std::uint8_t>) {
+            return read_array(&DcmItem::findAndGetUint8Array);
+        }
+        else if constexpr (std::is_same_v<T, std::uint16_t>) {
+            return read_array(&DcmItem::findAndGetUint16Array);
+        }
+        else if constexpr (std::is_same_v<T, std::int16_t>) {
+            return read_array(&DcmItem::findAndGetUint16Array);
+        }
+        else if constexpr (std::is_same_v<T, std::uint32_t>) {
+            return read_array(&DcmItem::findAndGetUint32Array);
+        }
+        else if constexpr (std::is_same_v<T, std::int32_t>) {
+            return read_array(&DcmItem::findAndGetSint32Array);
+        }
+        else {
+            UNREACHABLE();
+        }
+    }
+
+    [[nodiscard]] nova::result<std::span<const std::byte>> read_pixel_data(const pixel_data_info& info) const noexcept {
+        if (!is_loaded()) [[unlikely]] {
             logger::error("unable to read pixeldata. Reason: no dicom file loaded");
             return nova::err();
         }
 
-        const auto pixel_representation = read_tag<uint16_t>(dicom_tag::pixel_representation);
-        const auto bits_allocated = read_tag<uint16_t>(dicom_tag::bits_allocated);
-        const auto format = resolve_pixel_sample_format(bits_allocated, pixel_representation);
-        if(!format) {
-            logger::error("{}", format.error());
-            return nova::err();
+        const auto expected_sample_count =
+            info.pixel_count() * static_cast<std::size_t>(info.samples_per_pixel);
+
+        switch (info.format) {
+            case pixel_sample_format::u8:
+                return read_pixel_data<pixel_sample_format::u8>(expected_sample_count);
+            case pixel_sample_format::u16:
+                return read_pixel_data<pixel_sample_format::u16>(expected_sample_count);
+            case pixel_sample_format::s16:
+                return read_pixel_data<pixel_sample_format::s16>(expected_sample_count);
+            case pixel_sample_format::u32:
+                return read_pixel_data<pixel_sample_format::u32>(expected_sample_count);
+            case pixel_sample_format::s32:
+                return read_pixel_data<pixel_sample_format::s32>(expected_sample_count);
+            default:
+                UNREACHABLE();
         }
-
-        auto buffer = [&format, this]() {
-            const auto width = read_tag<uint16_t>(dicom_tag::columns);
-            const auto height = read_tag<uint16_t>(dicom_tag::rows);
-            const auto frames = read_tag<uint16_t>(dicom_tag::number_of_frames, 1);
-            const auto pixel_count = static_cast<size_t>(width) * static_cast<size_t>(height) * static_cast<size_t>(frames);
-
-            switch (*format) {
-                case pixel_sample_format::u8: return read_pixel_buffer<pixel_sample_format::u8>(pixel_count);
-                case pixel_sample_format::u16: return read_pixel_buffer<pixel_sample_format::u16>(pixel_count);
-                case pixel_sample_format::s16:return read_pixel_buffer<pixel_sample_format::s16>(pixel_count);
-                case pixel_sample_format::u32:return read_pixel_buffer<pixel_sample_format::u32>(pixel_count);
-                case pixel_sample_format::s32:return read_pixel_buffer<pixel_sample_format::s32>(pixel_count);
-                default: UNREACHABLE();
-            }
-        }();
-
-        if(!buffer) {
-            logger::error("Failed to read pixel buffer");
-            return nova::err();
-        }
-
-        return *buffer;
     }
 
     [[nodiscard]] nova::result<pixel_data_info> read_pixel_data_info() const noexcept {
@@ -235,7 +276,7 @@ public:
         return m_file != nullptr;
     }
 
-    [[nodiscard]] std::filesystem::path file_path() const noexcept {
+    [[nodiscard]] const std::filesystem::path& file_path() const noexcept {
         return m_file_path;
     }
 private:
@@ -358,25 +399,23 @@ private:
     }
 
     [[nodiscard]] static nova::result<photometric_interpretation> resolve_photometric(std::string_view value) noexcept {
-        const nova::hash_map<std::string_view, photometric_interpretation> photometric_map {
-            { "MONOCHROME1", photometric_interpretation::monochrome1 },
-            { "MONOCHROME2", photometric_interpretation::monochrome2 },
-            { "PALETTE COLOR", photometric_interpretation::palette_color },
-            { "RGB", photometric_interpretation::rgb },
-            { "HSV", photometric_interpretation::hsv },
-            { "ARGB", photometric_interpretation::argb },
-            { "CMYK", photometric_interpretation::cmyk },
-            { "YBR_FULL", photometric_interpretation::ybr_full },
-            { "YBR_FULL_422", photometric_interpretation::ybr_full_422 },
-            { "YBR_PARTIAL_422", photometric_interpretation::ybr_partial_422 },
-            { "YBR_PARTIAL_420", photometric_interpretation::ybr_partial_420 },
-            { "YBR_ICT", photometric_interpretation::ybr_ict },
-            { "YBR_RCT", photometric_interpretation::ybr_rct },
-        };
+        using enum photometric_interpretation;
 
-        return photometric_map.contains(value)
-            ? nova::result<photometric_interpretation>(photometric_map.at(value))
-            : nova::err("failed to resolve photometric interpretation from dicom file");
+        if(value == "MONOCHROME1") { return { monochrome1 }; }
+        if(value == "MONOCHROME2") { return { monochrome2 }; }
+        if(value == "PALETTE COLOR") { return { palette_color }; }
+        if(value == "RGB") { return { rgb }; }
+        if(value == "HSV") { return { hsv }; }
+        if(value == "ARGB") { return { argb }; }
+        if(value == "CMYK") { return { cmyk }; }
+        if(value == "YBR_FULL") { return { ybr_full }; }
+        if(value == "YBR_FULL_422") { return { ybr_full_422 }; }
+        if(value == "YBR_PARTIAL_422") { return { ybr_partial_422 }; }
+        if(value == "YBR_PARTIAL_420") { return { ybr_partial_420 }; }
+        if(value == "YBR_ICT") { return { ybr_ict }; }
+        if(value == "YBR_RCT") { return { ybr_rct }; }
+
+        return nova::err("failed to resolve photometric interpretation from dicom file");
     }
 
    [[nodiscard]] static nova::result<pixel_sample_format> resolve_pixel_sample_format(uint16_t bits_allocated, uint16_t pixel_representation) {
@@ -420,8 +459,8 @@ nova::result<metadata> dicom_reader::read_metadata() const noexcept {
     return m_impl->read_metadata();
 }
 
-nova::result<std::vector<std::uint8_t>> dicom_reader::read_pixel_data() const noexcept {
-    return m_impl->read_pixel_data();
+nova::result<std::span<const std::byte>> dicom_reader::read_pixel_data(const pixel_data_info& info) const noexcept {
+    return m_impl->read_pixel_data(info);
 }
 
 nova::result<pixel_data_info> dicom_reader::read_pixel_data_info() const noexcept {

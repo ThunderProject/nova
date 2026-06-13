@@ -57,26 +57,36 @@ pub struct PixelDataInfo {
 }
 
 #[derive(Debug, Clone)]
-pub struct PixelData {
-    pub info: PixelDataInfo,
-    pub bytes: Vec<u8>,
+pub struct DicomFile {
+    pub metadata: Metadata,
+    pub pixel_data_info: PixelDataInfo,
+    pub pixel_data: bytes::Bytes,
 }
+
+use crate::bridge::binary_reader::BinaryReadError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum DicomError {
     #[error("C++ DICOM error: {0}")]
     Cxx(#[from] cxx::Exception),
-    #[error("DICOM JSON parse error: {0}")]
-    Json(#[from] serde_json::Error),
+
+    #[error("DICOM wire parse error: {0}")]
+    Wire(#[from] BinaryReadError),
 
     #[error("DICOM reader was null")]
     NullReader,
 
-    #[error("DICOM string was null")]
-    NullString,
+    #[error("DICOM metadata buffer was null")]
+    NullMetadataBuffer,
+
+    #[error("DICOM pixel data info buffer was null")]
+    NullPixelDataInfoBuffer,
 
     #[error("DICOM pixel buffer was null")]
     NullPixelBuffer,
+
+    #[error("DICOM file buffer was null")]
+    NullFileBuffer,
 }
 
 

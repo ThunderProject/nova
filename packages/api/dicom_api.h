@@ -1,6 +1,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace nova::dicom {
@@ -14,9 +15,7 @@ namespace nova::ffi::dicom {
         ~dicom_api();
 
         void load(const std::string& path);
-        [[nodiscard]] std::unique_ptr<std::string> read_metadata() const;
-        [[nodiscard]] std::unique_ptr<std::string> read_pixel_data_info() const;
-        [[nodiscard]] std::unique_ptr<std::vector<std::uint8_t>> read_pixel_buffer() const;
+        [[nodiscard]] std::unique_ptr<std::vector<std::uint8_t>> read_file() const;
     private:
         std::unique_ptr<nova::dicom::dicom_reader> m_reader;
     };

@@ -4,31 +4,17 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tracing::debug;
 use walkdir::WalkDir;
 
-use crate::{DicomReader, file_loader::error::DicomFileError};
+use crate::{
+    bridge::dicom_bridge::ffi,
+    dicom::Dicom,
+    file_loader::error::DicomFileError,
+};
 
-const FILE_SUFFIXES_TO_SKIP: &[&str] = &[
-    "~",
-    ".tmp",
-    ".bak",
-    ".json",
-    ".txt",
-    ".zip",
-];
+const FILE_SUFFIXES_TO_SKIP: &[&str] = &["~", ".tmp", ".bak", ".json", ".txt", ".zip"];
 
-#[derive(Debug)]
-pub struct DicomFile {
-    pub path: PathBuf,
-
-    pub sop_instance_uid: Option<String>,
-    pub study_instance_uid: Option<String>,
-    pub series_instance_uid: Option<String>,
-    pub patient_id: Option<String>,
-    pub patient_name: Option<String>,
-    pub modality: Option<String>,
-}
-
-pub fn process_file(path: impl AsRef<Path>) -> Result<DicomFile, DicomFileError> {
+pub fn process_file(path: impl AsRef<Path>) -> Result<Dicom, DicomFileError> {
     let path = path.as_ref();
+
     let filename = path
         .file_name()
         .and_then(|name| name.to_str())
@@ -36,46 +22,41 @@ pub fn process_file(path: impl AsRef<Path>) -> Result<DicomFile, DicomFileError>
 
     debug!(file = filename, "processing DICOM file");
 
-    let mut reader = DicomReader::new();
-
-    reader
-        .load(path)
-        .map_err(|err| DicomFileError::ReadFailed {
-            path: path.to_owned(),
-            message: err.to_string(),
-        })?;
-
-    let metadata = reader
-        .metadata()
-        .map_err(|err| DicomFileError::ReadFailed {
-            path: path.to_owned(),
-            message: err.to_string(),
-        })?;
-
-    let dicom_file = DicomFile {
+    Dicom::load(path).map_err(|err| DicomFileError::ReadFailed {
         path: path.to_owned(),
-
-        // TODO: add SOPInstanceUID to Metadata soon.
-        sop_instance_uid: None,
-
-        study_instance_uid: non_empty(metadata.study.instance_uid),
-        series_instance_uid: non_empty(metadata.series.instance_uid),
-        patient_id: non_empty(metadata.patient.id),
-        patient_name: non_empty(metadata.patient.name),
-        modality: non_empty(metadata.series.modality),
-    };
-
-    Ok(dicom_file)
+        message: err.to_string(),
+    })
 }
 
-
-pub fn process_directory(root: impl AsRef<Path>,) -> Result<Vec<DicomFile>, DicomFileError> {
+pub fn process_directory(root: impl AsRef<Path>) -> Result<Vec<Dicom>, DicomFileError> {
     let files = collect_files(root)?;
 
     files
         .par_iter()
-        .map(process_file)
+        .map_init(
+            ffi::dicom_api_create,
+            |ffi_bridge, path| {
+                process_file_with_bridge(ffi_bridge, path)
+            },
+        )
         .collect()
+}
+
+fn process_file_with_bridge(
+    ffi_bridge: &mut cxx::UniquePtr<ffi::dicom_api>,
+    path: &Path,
+) -> Result<Dicom, DicomFileError> {
+    let filename = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("<unknown>");
+
+    debug!(file = filename, "processing DICOM file");
+
+    Dicom::load_with_bridge(ffi_bridge, path).map_err(|err| DicomFileError::ReadFailed {
+        path: path.to_owned(),
+        message: err.to_string(),
+    })
 }
 
 pub fn collect_files(base_path: impl AsRef<Path>) -> Result<Vec<PathBuf>, DicomFileError> {
@@ -88,10 +69,18 @@ pub fn collect_files(base_path: impl AsRef<Path>) -> Result<Vec<PathBuf>, DicomF
     }
 
     let mut files = Vec::new();
-    for entry in WalkDir::new(base_path).follow_links(false) {
+
+    for entry in WalkDir::new(base_path)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|entry| {
+            let name = entry.file_name().to_string_lossy();
+            !name.starts_with('.')
+        })
+    {
         let entry = entry.map_err(|err| DicomFileError::DirectoryTraversal {
             message: err.to_string(),
-            path: base_path.to_owned()
+            path: base_path.to_owned(),
         })?;
 
         if !entry.file_type().is_file() {
@@ -116,16 +105,11 @@ fn skip_file(path: &Path) -> bool {
         return true;
     };
 
-    filename.starts_with('.') || FILE_SUFFIXES_TO_SKIP
+    if filename.starts_with('.') {
+        return true;
+    }
+
+    FILE_SUFFIXES_TO_SKIP
         .iter()
         .any(|suffix| filename.ends_with(suffix))
-}
-
-fn non_empty(value: String) -> Option<String> {
-    let value = value.trim().to_owned();
-
-    match value.is_empty() {
-        true => None,
-        _ => Some(value)
-    }
 }
