@@ -1,0 +1,16 @@
+[package]
+name = "nova_domain"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+bytes.workspace = true
+nova_dicom.workspace = true
+anyhow.workspace = true
+
+[lints]
+workspace = true
