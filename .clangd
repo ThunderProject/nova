@@ -29,9 +29,11 @@ Diagnostics:
       - readability-named-parameter
       - bugprone-easily-swappable-parameters
       - readability-magic-numbers
+      - readability-uppercase-literal-suffix
 
   UnusedIncludes: Strict
-  MissingIncludes: Strict
+  #MissingIncludes: Strict
+  MissingIncludes: None
 
 InlayHints:
   Enabled: true
@@ -44,3 +46,9 @@ Hover:
 
 Completion:
   AllScopes: true
+
+---
+If:
+  PathMatch: .*\.cppm$
+Diagnostics:
+  MissingIncludes: None
