@@ -20,6 +20,7 @@ target_sources(nova_concurrency
     utils/hints.cppm
     sync/spinlock.cppm
     sync/seqlock.cppm
+    sync/guard.cppm
 )
 
 target_compile_features(nova_concurrency PUBLIC cxx_std_23)
