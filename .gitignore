@@ -21,6 +21,7 @@ crates/nova_project/target/
 crates/nova_rate_limit/target/
 
 crates/nova_render/target
+crates/nova_dicom/data
 
 nova/target/
 

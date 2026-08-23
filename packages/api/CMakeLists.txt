@@ -1,4 +1,4 @@
-add_library(nova_api SHARED
+add_library(nova_api STATIC
     dicom_api.cpp
 )
 

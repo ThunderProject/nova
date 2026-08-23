@@ -32,26 +32,42 @@ target_compile_options(nova_project_options INTERFACE
   -Wundef
   -Wno-c2y-extensions
   -Winvalid-utf8
+
   -U_FORTIFY_SOURCE
   -D_FORTIFY_SOURCE=3
   -D_GLIBCXX_ASSERTIONS
+
   -fstack-clash-protection
   -fstack-protector-strong
   -fstrict-flex-arrays=3
-  -fsanitize=address
+  -ftrivial-auto-var-init=zero
+
+  #-fsanitize=address
   -fno-omit-frame-pointer
+
+  $<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-fcf-protection=full>
 
   $<$<CONFIG:Release>:-O3>
   $<$<CONFIG:Release>:-march=native>
   $<$<CONFIG:Release>:-mtune=native>
+  $<$<CONFIG:Release>:-fdata-sections>
+  $<$<CONFIG:Release>:-flto=thin>
+  #$<$<CONFIG:Release>:-fsanitize=cfi>
+  #$<$<CONFIG:Release>:-fsanitize-trap=cfi>
+  $<$<CONFIG:Release>:-fwhole-program-vtables>
   $<$<CONFIG:Release>:-fstrict-vtable-pointers>
   $<$<CONFIG:Release>:-ffunction-sections>
-  $<$<CONFIG:Release>:-fdata-sections>
+  $<$<CONFIG:Release>:-fvisibility=hidden>
+  $<$<CONFIG:Release>:-fvisibility-inlines-hidden>
 
   $<$<CONFIG:RelWithDebInfo>:-O3>
   $<$<CONFIG:RelWithDebInfo>:-g>
   $<$<CONFIG:RelWithDebInfo>:-march=native>
   $<$<CONFIG:RelWithDebInfo>:-mtune=native>
+  $<$<CONFIG:RelWithDebInfo>:-flto=thin>
+  $<$<CONFIG:RelWithDebInfo>:-fsanitize=cfi>
+  $<$<CONFIG:RelWithDebInfo>:-fsanitize-trap=cfi>
+  $<$<CONFIG:RelWithDebInfo>:-fwhole-program-vtables>
   $<$<CONFIG:RelWithDebInfo>:-fstrict-vtable-pointers>
   $<$<CONFIG:RelWithDebInfo>:-ffunction-sections>
   $<$<CONFIG:RelWithDebInfo>:-fdata-sections>
@@ -59,20 +75,35 @@ target_compile_options(nova_project_options INTERFACE
 
 target_link_options(nova_project_options INTERFACE
   -Wl,-z,nodlopen
+  -fuse-ld=lld
+
   -Wl,-z,noexecstack
+
   -Wl,-z,relro
   -Wl,-z,now
+
+  -Wl,-z,text
+  -Wl,-z,separate-code
+  -Wl,-z,defs
+
   -Wl,--as-needed
   -Wl,--no-copy-dt-needed-entries
-  -fsanitize=address
+  -Wl,--fatal-warnings
 
-  $<$<CONFIG:Release>:-fuse-ld=lld>
+  #-fsanitize=address
+
   $<$<CONFIG:Release>:-flto=thin>
+  #$<$<CONFIG:Release>:-fsanitize=cfi>
+  #$<$<CONFIG:Release>:-fsanitize-trap=cfi>
+
   $<$<CONFIG:Release>:-Wl,--gc-sections>
   $<$<CONFIG:Release>:-Wl,--icf=safe>
+  $<$<CONFIG:Release>:-Wl,--strip-all>
 
-  $<$<CONFIG:RelWithDebInfo>:-fuse-ld=lld>
   $<$<CONFIG:RelWithDebInfo>:-flto=thin>
+  $<$<CONFIG:RelWithDebInfo>:-fsanitize=cfi>
+  $<$<CONFIG:RelWithDebInfo>:-fsanitize-trap=cfi>
+
   $<$<CONFIG:RelWithDebInfo>:-Wl,--gc-sections>
   $<$<CONFIG:RelWithDebInfo>:-Wl,--icf=safe>
 )

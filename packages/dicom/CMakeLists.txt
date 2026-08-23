@@ -1,4 +1,4 @@
-add_library(nova_dicom SHARED
+add_library(nova_dicom STATIC
     dicom.cpp
     dicom_reader.cpp
 )
