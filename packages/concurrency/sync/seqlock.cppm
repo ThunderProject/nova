@@ -115,8 +115,6 @@ namespace nova {
     /**
     * @brief Single-writer, multi-reader sequence lock.
     *
-    * @pre store() must only be called concurrently by one writer thread.
-    * @pre The object must not be destroyed while any load/store is active.
     */
     export template<class T>
     requires(
