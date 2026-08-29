@@ -20,10 +20,9 @@ namespace nova {
     public:
         using value_type = T;
         using allocator_type = Allocator;
-        using difference_type = typename allocator_traits::difference_type;
         using size_type = typename allocator_traits::size_type;
 
-        constexpr explicit concurrentringbuffer(difference_type requested_capacity, const Allocator& allocator)
+        constexpr explicit concurrentringbuffer(size_type requested_capacity, const Allocator& allocator = Allocator())
             :
             m_allocator(allocator)
         {
@@ -31,7 +30,7 @@ namespace nova {
                 throw std::invalid_argument{"concurrentringbuffer capacity must be greater than zero"};
             }
 
-            if (requested_capacity > maximum_capacity()) [[unlikely]] {
+            if (requested_capacity > maximum_capacity(m_allocator)) [[unlikely]] {
                 throw std::length_error{"concurrentringbuffer capacity is too large"};
             }
 
@@ -68,11 +67,11 @@ namespace nova {
             return std::bit_floor(allocator_traits::max_size(allocator));
         }
 
-        constexpr void write_at(const difference_type index, const T& value) noexcept {
+        constexpr void write_at(const size_type index, const T& value) noexcept {
             data()[index & m_capacity_mask].store(value, std::memory_order_relaxed);
         }
 
-        [[nodiscard]] auto read_at(const difference_type index) const noexcept {
+        [[nodiscard]] auto read_at(const size_type index) const noexcept {
             return data()[index & m_capacity_mask].load(std::memory_order_relaxed);
         }
     private:
@@ -121,7 +120,7 @@ namespace nova {
 
         using buffer_type = concurrentringbuffer<T>;
     public:
-        using size_type = typename buffer_type::size_type;
+        using size_type = std::size_t;
     private:
         using signed_size_type = std::make_signed_t<size_type>;
 
@@ -138,9 +137,7 @@ namespace nova {
         concurrent_deque& operator=(const concurrent_deque&) = delete;
         concurrent_deque(concurrent_deque&&) noexcept = delete;
         concurrent_deque& operator=(concurrent_deque&&) noexcept = delete;
-        ~concurrent_deque() noexcept {
-            delete m_buffer.load(std::memory_order_relaxed);
-        }
+        ~concurrent_deque() noexcept = default;
 
         [[nodiscard]] bool push(const T& item) noexcept {
             const auto bottom = m_bottom.load(std::memory_order_relaxed);
