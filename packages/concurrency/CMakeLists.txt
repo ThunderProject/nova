@@ -22,6 +22,7 @@ target_sources(nova_concurrency
     sync/seqlock.cppm
     sync/guard.cppm
     sync/mutex.cppm
+    deque/concurrentdeque.cppm
 )
 
 target_compile_features(nova_concurrency PUBLIC cxx_std_23)
