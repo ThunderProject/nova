@@ -245,6 +245,71 @@ namespace nova {
             }
         }
 
+        [[nodiscard]] size_type steal_batch(std::span<T> out) noexcept {
+            if(out.empty()) {
+                return 0;
+            }
+
+            if constexpr (flavor == Flavor::Fifo) {
+                auto attempt = std::min(out.size(), capacity());
+
+                while(attempt != 0) {
+                    auto top = m_top.load(std::memory_order::acquire);
+                    std::atomic_thread_fence(std::memory_order::seq_cst);
+                    const auto bottom = m_bottom.load(std::memory_order::acquire);
+
+                    const auto len = distance(bottom, top);
+
+                    if(len <= 0) [[unlikely]] {
+                        return 0;
+                    }
+
+                    const auto count = std::min(attempt, static_cast<size_type>(len));
+
+                    for(size_type i = 0; i != count; ++i) {
+                        if constexpr (std::is_nothrow_move_assignable_v<T>) {
+                            out[i] = m_buffer.read_at(top + i);
+                        }
+                        else {
+                            const auto item = m_buffer.read_at(top + 1);
+                            out[i] = item;
+                        }
+                    }
+
+                    auto expected = top;
+                    if(m_top.compare_exchange_strong(expected, top + count, std::memory_order::seq_cst, std::memory_order::relaxed)) {
+                        return count;
+                    }
+
+                    if(count == 1) {
+                        return 0;
+                    }
+
+                    attempt = count / 2;
+                }
+                return 0;
+            }
+            else {
+                size_type count = 0;
+
+                while(count != out.size()) {
+                    auto item = steal();
+
+                    if(!item) {
+                        break;
+                    }
+
+                    if constexpr (std::is_nothrow_move_assignable_v<T>) {
+                        out[count++] = std::move(item.value());
+                    }
+                    else {
+                        out[count++] = item.value();
+                    }
+                }
+                return count;
+            }
+        }
+
         [[nodiscard]] auto size() const noexcept {
             const auto bottom = m_bottom.load(std::memory_order_relaxed);
             const auto top = m_top.load(std::memory_order_relaxed);

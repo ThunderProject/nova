@@ -39,7 +39,7 @@ namespace nova {
          *
          * Memory ordering:
          *  - `unpark()` synchronizes-with this `park()`, guaranteeing that memory operations
-         *     before `unpark()` are visible after `park()`      
+         *     before `unpark()` are visible after `park()`
         */
         void park() noexcept {
             if(prepare_wait()) {
@@ -81,7 +81,7 @@ namespace nova {
             }
 
             if(m_token.try_acquire_for(timeout)) {
-                consume_wake(); 
+                consume_wake();
                 return true;
             }
 
@@ -150,7 +150,7 @@ namespace nova {
             return m_state.compare_exchange_strong(
                 expected,
                 state::empty,
-                std::memory_order_acquire, 
+                std::memory_order_acquire,
                 std::memory_order_relaxed
             );
         }

@@ -5,6 +5,7 @@
 #include <ranges>
 
 import backoff;
+import concurrentdeque;
 
 static_assert(std::default_initializable<nova::backoff>);
 static_assert(std::is_nothrow_default_constructible_v<nova::backoff>);
@@ -15,6 +16,7 @@ static_assert(noexcept(std::declval<const nova::backoff&>().is_completed()));
 
 TEST_CASE("Backoff") {
     SECTION("Initial state") {
+        nova::concurrent_deque<int> t;
         nova::backoff bo;
         REQUIRE_FALSE(bo.is_completed());
     }
