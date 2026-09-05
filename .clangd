@@ -30,6 +30,8 @@ Diagnostics:
       - bugprone-easily-swappable-parameters
       - readability-magic-numbers
       - readability-uppercase-literal-suffix
+      - readability-function-cognitive-complexity
+      - readability-math-missing-parentheses
 
   UnusedIncludes: Strict
   #MissingIncludes: Strict
