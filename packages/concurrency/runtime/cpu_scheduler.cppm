@@ -10,7 +10,6 @@ module;
 #include <stdexcept>
 #include <atomic>
 #include <functional>
-#include <stop_token>
 #include <tuple>
 #include <thread>
 #include <type_traits>
@@ -20,15 +19,22 @@ module;
 #include <cstdint>
 #include <optional>
 #include <span>
-export module cpu_scheduler;
+#include <coroutine>
+#include <mutex>
 
+export module cpu_scheduler;
 import backoff;
 import concurrentdeque;
 import mpmc_queue;
 import thread_parker;
+export import scheduler_work;
+export import coro_task;
 
 namespace nova {
     constexpr inline std::size_t cache_line_size = 64;
+
+    using work_type = schedulable_work;
+    using work_pointer = work_type*;
 
     enum class completion_state : std::uint8_t {
         empty,
@@ -40,7 +46,13 @@ namespace nova {
     class invocation {
     public:
         template<class Fnc, class...A>
-        explicit invocation(Fnc&& fnc, A&&... args) noexcept(std::conjunction_v<std::is_nothrow_constructible<Function, Fnc&&>, std::is_nothrow_constructible<std::tuple<Args...>, A&&...>>)
+        explicit invocation(Fnc&& fnc, A&&... args) 
+        noexcept(
+                std::conjunction_v<
+                    std::is_nothrow_constructible<Function, Fnc&&>, 
+                    std::is_nothrow_constructible<std::tuple<Args...>, A&&...>
+                >
+        )
             :
             m_function(std::forward<Fnc>(fnc)),
             m_arguments(std::forward<A>(args)...)
@@ -66,7 +78,7 @@ namespace nova {
     public:
         explicit fast_rng(std::uint64_t seed) noexcept
             :
-            m_state(mix(seed))
+            m_state(mix(seed)) 
         {
             if(m_state == 0) {
                 m_state = 0x9e3779b97f4a7c15ULL;
@@ -82,7 +94,7 @@ namespace nova {
 
         [[nodiscard]] std::uint32_t next() noexcept {
             auto value = m_state;
-
+    
             value ^= value >> 12;
             value ^= value << 25;
             value ^= value >> 27;
@@ -110,14 +122,14 @@ namespace nova {
     class task_pool;
 
     template<std::size_t StorageSize, std::size_t StorageAlignment>
-    class alignas(std::max(cache_line_size, StorageAlignment)) task_slot {
+    class alignas(std::max(cache_line_size, StorageAlignment)) task_slot final : public schedulable_work {
         using pool_type = task_pool<StorageSize, StorageAlignment>;
 
         using run_function = void(*)(task_slot&) noexcept;
         using destroy_function = void(*)(task_slot&) noexcept;
         using exception_handler = void(*)(std::exception_ptr) noexcept;
     public:
-        task_slot() noexcept = default;
+        task_slot() noexcept : schedulable_work(std::addressof(task_slot::dispatch_slot)) {}
         task_slot(const task_slot&) = delete;
         task_slot& operator=(const task_slot&) = delete;
         task_slot(task_slot&&) = delete;
@@ -134,11 +146,10 @@ namespace nova {
                 static_assert(!std::is_const_v<Result>);
                 static_assert(sizeof(Result) <= StorageSize);
                 static_assert(alignof(Result) <= StorageAlignment);
-                static_assert(std::is_nothrow_move_constructible_v<Result>);
                 static_assert(std::is_nothrow_destructible_v<Result>);
             }
 
-            std::construct_at(payload<Model>(), std::forward<Args>(args)...);
+            std::construct_at(raw_payload<Model>(), std::forward<Args>(args)...);
             m_destroy = &destroy_payload<Model>;
             m_run = &run<Result, Model>;
 
@@ -152,7 +163,7 @@ namespace nova {
             static_assert(alignof(Model) <= StorageAlignment);
             static_assert(std::is_nothrow_destructible_v<Model>);
 
-            std::construct_at(payload<Model>(), std::forward<Args>(args)...);
+            std::construct_at(raw_payload<Model>(), std::forward<Args>(args)...);
             m_destroy = &destroy_payload<Model>;
             m_run = &run_detached<Model>;
             m_exception_handler = handler;
@@ -181,9 +192,8 @@ namespace nova {
 
 
         template<class Result>
-        [[nodiscard]] Result take_result() noexcept {
+        [[nodiscard]] Result take_result() {
             static_assert(!std::is_void_v<Result>);
-            static_assert(std::is_nothrow_move_constructible_v<Result>);
 
             return std::move(*payload<Result>());
         }
@@ -193,6 +203,64 @@ namespace nova {
         }
 
         void release_reference() noexcept;
+
+        template<class Result>
+        void prepare_external() noexcept {
+            static_assert(std::is_void_v<Result> || std::is_object_v<Result>);
+            if constexpr(!std::is_void_v<Result>) {
+                static_assert(sizeof(Result) <= StorageSize);
+                static_assert(alignof(Result) <= StorageAlignment);
+                static_assert(std::is_nothrow_destructible_v<Result>);
+            }
+            m_references.store(2, std::memory_order::relaxed);
+            m_state.store(completion_state::queued, std::memory_order::relaxed);
+        }
+
+        template<class Result>
+        void complete_value(Result&& value) {
+            using result_type = std::remove_cvref_t<Result>;
+            std::construct_at(raw_payload<result_type>(), std::forward<Result>(value));
+            m_destroy = &destroy_payload<result_type>;
+            complete();
+        }
+
+        void complete_exception(std::exception_ptr exception) noexcept {
+            m_exception = std::move(exception);
+            complete();
+        }
+
+        void complete() noexcept {
+            m_state.store(completion_state::ready, std::memory_order::release);
+            m_state.notify_one();
+
+            auto* const waiter = m_waiter.exchange(this, std::memory_order::acq_rel);
+            if(waiter != nullptr) {
+                m_wake(m_wait_context, waiter);
+            }
+        }
+
+        [[nodiscard]] bool suspend(
+            schedulable_work* const waiter, 
+            void* const context, 
+            void(*wake)(void*, schedulable_work*
+        ) noexcept) noexcept {
+            m_wait_context = context;
+            m_wake = wake;
+            schedulable_work* expected = nullptr;
+
+            return m_waiter.compare_exchange_strong(
+                expected, 
+                waiter, 
+                std::memory_order::release, 
+                std::memory_order::acquire
+            );
+        }
+
+        [[nodiscard]] static task_slot* make_overflow() {
+            auto* const slot = new task_slot;
+            slot->reset();
+            return slot;
+        }
     private:
         friend pool_type;
 
@@ -206,10 +274,16 @@ namespace nova {
             DEBUG_ASSERT(m_destroy == nullptr);
 
             m_exception = {};
+            m_waiter.store(nullptr, std::memory_order::relaxed);
             m_exception_handler = nullptr;
             m_run = nullptr;
             m_references.store(1, std::memory_order::relaxed);
             m_state.store(completion_state::empty, std::memory_order::relaxed);
+        }
+
+        template<class Payload>
+        [[nodiscard]] Payload* raw_payload() noexcept {
+            return reinterpret_cast<Payload*>(m_storage.data());
         }
 
         template<class Payload>
@@ -245,7 +319,7 @@ namespace nova {
                     std::destroy_at(model);
                     model_alive = false;
 
-                    std::construct_at(slot.template payload<Result>(), std::move(result));
+                    std::construct_at(slot.template raw_payload<Result>(), std::move(result));
                     slot.m_destroy = &destroy_payload<Result>;
                 }
             }
@@ -257,9 +331,7 @@ namespace nova {
                 slot.m_destroy = nullptr;
                 slot.m_exception = std::current_exception();
             }
-
-            slot.m_state.store(completion_state::ready, std::memory_order::release);
-            slot.m_state.notify_one();
+            slot.complete();
         }
 
         template<class Model>
@@ -282,12 +354,22 @@ namespace nova {
             slot.m_destroy = nullptr;
         }
 
+        static void dispatch_slot(schedulable_work& work) noexcept {
+            auto& slot = static_cast<task_slot&>(work);
+            slot.execute();
+            slot.release_reference();
+        }
+
         alignas(StorageAlignment)
         std::array<std::byte, StorageSize> m_storage{};
 
         std::atomic_uint32_t m_references{0};
         std::atomic<completion_state> m_state{completion_state::empty};
         std::atomic_uint32_t m_next_free{0};
+
+        std::atomic<schedulable_work*> m_waiter{nullptr};
+        void* m_wait_context{};
+        void(*m_wake)(void*, schedulable_work*) noexcept{};
 
         pool_type* m_pool{nullptr};
         std::uint32_t m_index;
@@ -309,11 +391,11 @@ namespace nova {
     public:
         explicit task_pool(const std::uint32_t capacity)
             :
-            m_capacvity(validate_capacity(capacity)),
-            m_slots(std::make_unique<slot_type[]>(m_capacvity))
+            m_capacity(validate_capacity(capacity)),
+            m_slots(std::make_unique<slot_type[]>(m_capacity))
         {
             for(uint32_t i = 0; i != capacity; ++i) {
-                const auto next = i + 1 == m_capacvity
+                const auto next = i + 1 == m_capacity
                     ? empty_index
                     : i + 1;
                 m_slots[i].init(this, i, next);
@@ -327,7 +409,7 @@ namespace nova {
         task_pool(task_pool&&) = delete;
 
         ~task_pool() noexcept {
-            DEBUG_ASSERT(m_live.load(std::memory_order::relaxed) == 0, "A task future outlived its scheduler");
+            DEBUG_ASSERT(m_references.load(std::memory_order::relaxed) == 0);
         }
 
         [[nodiscard]] slot_type* try_acquire() noexcept {
@@ -343,8 +425,8 @@ namespace nova {
                 auto& slot = m_slots[index];
                 const auto next = slot.m_next_free.load(std::memory_order::relaxed);
 
-                if(m_head.compare_exchange_weak(head, pack(next, unpack_tag(head) + 1), std::memory_order::acquire, std::memory_order::relaxed)) {
-                    m_live.fetch_add(1, std::memory_order::relaxed);
+                if(m_head.compare_exchange_weak(head, pack(next, unpack_tag(head) + 1), std::memory_order::acquire, std::memory_order::acquire)) {
+                    m_references.fetch_add(1, std::memory_order::relaxed);
                     slot.reset();
 
                     return std::addressof(slot);
@@ -352,8 +434,20 @@ namespace nova {
             }
         }
 
+        void release_reference() noexcept {
+            if(m_references.fetch_sub(1, std::memory_order::acq_rel) == 1) {
+                delete this;
+            }
+        }
+
+        struct deleter {
+            void operator()(task_pool* const pool) const noexcept {
+                pool->release_reference();
+            }
+        };
+
         [[nodiscard]] std::uint64_t live() const noexcept {
-            return m_live.load(std::memory_order::acquire);
+            return m_references.load(std::memory_order::acquire) - 1;
         }
     private:
         friend slot_type;
@@ -372,7 +466,7 @@ namespace nova {
                 slot.m_next_free.store(unpack_index(head), std::memory_order::relaxed);
 
                 if(m_head.compare_exchange_weak(head, pack(slot.m_index, unpack_tag(head) + 1), std::memory_order::release, std::memory_order::relaxed)) {
-                    m_live.fetch_sub(1, std::memory_order::release);
+                    release_reference();
                     return;
                 }
             }
@@ -390,14 +484,14 @@ namespace nova {
             return val >> index_bits;
         }
 
-        const std::uint32_t m_capacvity;
+        const std::uint32_t m_capacity;
         std::unique_ptr<slot_type[]> m_slots;
 
         alignas(cache_line_size)
         std::atomic_uint64_t m_head{0};
 
         alignas(cache_line_size)
-        std::atomic_uint64_t m_live{0};
+        std::atomic_uint64_t m_references{1};
     };
 
     template<std::size_t StorageSize, std::size_t StorageAlignment>
@@ -420,10 +514,15 @@ namespace nova {
         m_exception_handler = nullptr;
 
         m_state.store(completion_state::empty, std::memory_order::relaxed);
-        m_pool->recycle(*this);
+        if(m_pool != nullptr) {
+            m_pool->recycle(*this);
+        }
+        else {
+            delete this;
+        }
     }
 
-    export class scheduler_stopped final : std::runtime_error {
+    export class scheduler_stopped final : public std::runtime_error {
     public:
         scheduler_stopped() : std::runtime_error{"CPU scheduler has stopped"} {}
     };
@@ -435,7 +534,6 @@ namespace nova {
         std::uint32_t task_slots_per_worker = 4096;
         std::uint32_t global_poll_interval = 61;
         std::uint32_t steal_batch_size = 32;
-
         void(*unhandled_exception)(std::exception_ptr) noexcept = &terminate_on_unhandled_exception;
     };
 
@@ -458,25 +556,53 @@ namespace nova {
                 :
                 index(worker_index),
                 local_queue(cfg.local_queue_capacity),
-                task_slots(cfg.task_slots_per_worker),
+                task_slots(new pool_type(cfg.task_slots_per_worker)),
                 rng(seed),
-                lifo_slot(nullptr),
                 global_budget(cfg.global_poll_interval)
             {}
 
             const std::uint32_t index;
-            concurrent_deque<task_pointer, Flavor::Lifo> local_queue;
-            pool_type task_slots;
+            concurrent_deque<work_pointer, Flavor::Lifo> local_queue;
+            std::unique_ptr<pool_type, typename pool_type::deleter> task_slots;
             thread_parker parker;
             fast_rng rng;
-            std::array<task_pointer, MaximumStealBatch> stolen_tasks{};
-            task_pointer lifo_slot;
+            std::array<work_pointer, MaximumStealBatch> stolen_tasks{};
+            work_pointer lifo_slot{};
             std::uint32_t global_budget;
+        };
+
+        static constexpr std::uint64_t closed_bit = std::uint64_t{1} << 63;
+        static constexpr std::uint64_t count_mask = closed_bit - 1;
+
+        class admission_guard {
+        public:
+            explicit admission_guard(cpu_scheduler* scheduler = nullptr) noexcept
+                :
+                m_scheduler(scheduler)
+            {}
+            admission_guard(const admission_guard&) = delete;
+            admission_guard& operator=(const admission_guard&) = delete;
+            admission_guard(admission_guard&& rhs) noexcept
+                :
+                m_scheduler(std::exchange(rhs.m_scheduler, nullptr))
+            {}
+            ~admission_guard() noexcept {
+                if(m_scheduler != nullptr) {
+                    m_scheduler->finish_pending_one();
+                }
+            }
+            [[nodiscard]] explicit operator bool() const noexcept {
+                return m_scheduler != nullptr;
+            }
+            void release() noexcept { m_scheduler = nullptr; }
+        private:
+            cpu_scheduler* m_scheduler;
         };
     public:
         template<class Result>
         class future {
         public:
+            using value_type = Result;
             future() noexcept = default;
             future(const future&) = delete;
             future& operator=(const future&) = delete;
@@ -485,6 +611,7 @@ namespace nova {
                 m_scheduler(std::exchange(rhs.m_scheduler, nullptr)),
                 m_slot(std::exchange(rhs.m_slot, nullptr))
             {}
+
             future& operator=(future&& rhs) noexcept {
                 if(this == std::addressof(rhs)) {
                     return *this;
@@ -496,6 +623,7 @@ namespace nova {
 
                 return *this;
             }
+
             ~future() noexcept {
                 reset();
             }
@@ -510,36 +638,80 @@ namespace nova {
 
             void wait() const {
                 DEBUG_ASSERT(m_slot != nullptr);
-                DEBUG_ASSERT(m_scheduler != nullptr);
-
-                m_scheduler->wait_for(*m_slot);
+                if(!m_slot->ready()) {
+                    m_scheduler->wait_for(*m_slot);
+                }
             }
 
             Result get() {
                 DEBUG_ASSERT(m_slot != nullptr);
-                DEBUG_ASSERT(m_scheduler != nullptr);
-
                 auto* const slot = std::exchange(m_slot, nullptr);
-                m_scheduler->wait_for(*slot);
-                m_scheduler = nullptr;
+                auto* const scheduler = std::exchange(m_scheduler, nullptr);
 
-                const auto exception = slot->exception();
+                struct release_on_exit {
+                    slot_type* slot;
+                    ~release_on_exit() noexcept { slot->release_reference(); }
+                } cleanup{slot};
 
-                if(exception != nullptr) {
-                    slot->release_reference();
+                if(!slot->ready()) {
+                    scheduler->wait_for(*slot);
+                }
+
+                if(const auto exception = slot->exception()) {
                     std::rethrow_exception(exception);
                 }
 
-                if constexpr(std::is_void_v<Result>) {
-                    slot->release_reference();
-                    return;
-                }
-                else {
-                    auto result = slot->template take_result<Result>();
-                    slot->release_reference();
-                    return result;
+                if constexpr(!std::is_void_v<Result>) {
+                    return slot->template take_result<Result>();
                 }
             }
+
+            class awaiter {
+            public:
+                awaiter(cpu_scheduler* const scheduler, slot_type* const slot) noexcept
+                    :
+                    m_scheduler(scheduler),
+                    m_slot(slot)
+                {}
+
+                awaiter(const awaiter&) = delete;
+                awaiter& operator=(const awaiter&) = delete;
+                ~awaiter() noexcept {
+                    if(m_slot != nullptr) {
+                        m_slot->release_reference();
+                    }
+                }
+
+                [[nodiscard]] bool await_ready() const noexcept {
+                    return m_slot->ready();
+                }
+
+                template<schedulable_promise Promise>
+                [[nodiscard]] bool await_suspend(const std::coroutine_handle<Promise> current) noexcept {
+                    return m_slot->suspend(
+                        as_work(current), 
+                        m_scheduler,
+                        [](void* context, schedulable_work* work) noexcept {
+                            static_cast<cpu_scheduler*>(context)->post_existing(work);
+                        }
+                    );
+                }
+
+                Result await_resume() {
+                    future result{m_scheduler, std::exchange(m_slot, nullptr)};
+                    return result.get();
+                }
+            private:
+                cpu_scheduler* m_scheduler;
+                slot_type* m_slot;
+            };
+
+            [[nodiscard]] awaiter operator co_await() && noexcept {
+                DEBUG_ASSERT(m_slot != nullptr);
+                return awaiter{std::exchange(m_scheduler, nullptr), std::exchange(m_slot, nullptr)};
+            }
+
+            awaiter operator co_await() & = delete;
         private:
             friend cpu_scheduler;
 
@@ -588,10 +760,17 @@ namespace nova {
                 );
             }
 
-            for(std::uint32_t i = 0; i != m_config.worker_count; ++i) {
-                m_threads.emplace_back([this, i](std::stop_token stop_token) {
-                    worker_loop(stop_token, *m_workers[i]);
-                });
+            try {
+                for(std::uint32_t i = 0; i != m_config.worker_count; ++i) {
+                    m_threads.emplace_back([this, i] { worker_loop(*m_workers[i]); });
+                }
+            }
+            catch(...) {
+                request_stop();
+                for(auto& thread : m_threads) {
+                    thread.join();
+                }
+                throw;
             }
 
             m_ready.wait();
@@ -604,10 +783,6 @@ namespace nova {
 
         ~cpu_scheduler() noexcept {
             shutdown();
-
-            for(const auto& worker : m_workers) {
-                DEBUG_ASSERT(worker->task_slot.live() == 0, "A task future outlived its scheduler");
-            }
         }
 
         [[nodiscard]] std::uint32_t worker_count() const noexcept {
@@ -615,7 +790,7 @@ namespace nova {
         }
 
         [[nodiscard]] std::size_t pending() const noexcept {
-            return m_pending.load(std::memory_order::acquire);
+            return static_cast<std::size_t>(m_work_state.load(std::memory_order::acquire) & count_mask);
         }
 
         template<class Fnc, class... Args>
@@ -630,6 +805,10 @@ namespace nova {
             static_assert(sizeof(model_type) <= TaskStorageSize);
             static_assert(alignof(model_type) <= TaskStorageAlignment);
 
+            auto admission = try_admit();
+            if(!admission) {
+                throw scheduler_stopped{};
+            }
             auto* const slot = acquire_slot();
 
             try {
@@ -644,6 +823,7 @@ namespace nova {
             }
 
             future<result_type> result {this, slot};
+            admission.release();
             publish(slot);
             return result;
         }
@@ -662,7 +842,8 @@ namespace nova {
 
             using future_type = future<result_type>;
 
-            if(!accepts_submission()) {
+            auto admission = try_admit();
+            if(!admission) {
                 return std::optional<future_type>{};
             }
 
@@ -684,6 +865,7 @@ namespace nova {
             }
 
             future_type result{this, slot};
+            admission.release();
             publish(slot);
 
             return std::optional<future_type>{ std::move(result) };
@@ -696,6 +878,10 @@ namespace nova {
             static_assert(sizeof(model_type) <= TaskStorageSize);
             static_assert(alignof(model_type) <= TaskStorageAlignment);
 
+            auto admission = try_admit();
+            if(!admission) {
+                throw scheduler_stopped{};
+            }
             auto* const slot = acquire_slot();
 
             try {
@@ -710,6 +896,7 @@ namespace nova {
                 throw;
             }
 
+            admission.release();
             publish(slot);
         }
 
@@ -720,7 +907,8 @@ namespace nova {
             static_assert(sizeof(model_type) <= TaskStorageSize);
             static_assert(alignof(model_type) <= TaskStorageAlignment);
 
-            if(!accepts_submission()) {
+            auto admission = try_admit();
+            if(!admission) {
                 return false;
             }
 
@@ -742,35 +930,203 @@ namespace nova {
                 throw;
             }
 
+            admission.release();
             publish(slot);
             return true;
         }
 
-        void shutdown() noexcept {
-            bool expected = false;
+        void request_stop() noexcept {
+            m_work_state.fetch_or(closed_bit, std::memory_order::acq_rel);
+            wake_all();
+        }
 
-            if(!m_shutdown_started.compare_exchange_strong(expected, true, std::memory_order::acq_rel, std::memory_order::acquire)) {
+        void shutdown() noexcept {
+            // A worker can request stop, but cannot join its own thread.
+            if(is_worker_thread()) [[unlikely]] {
+                std::terminate();
+            }
+
+            if(m_shutdown_started.exchange(true, std::memory_order::acq_rel)) {
+                m_shutdown_complete.wait(false, std::memory_order::acquire);
                 return;
             }
 
-            m_accepting.store(false, std::memory_order::release);
-            m_stopping.store(true, std::memory_order::release);
-
-            wake_all();
-
+            request_stop();
             for(auto& thread : m_threads) {
                 if(thread.joinable()) {
                     thread.join();
                 }
             }
+
+            m_shutdown_complete.store(true, std::memory_order::release);
+            m_shutdown_complete.notify_all();
+        }
+
+        [[nodiscard]] bool is_worker_thread() const noexcept {
+            return tls_scheduler == this;
+        }
+
+        class schedule_awaiter {
+        public:
+            schedule_awaiter(cpu_scheduler& scheduler, const bool yield, const bool admitted = false) noexcept
+                :
+                m_scheduler(scheduler),
+                m_yield(yield),
+                m_admitted(admitted)
+            {}
+
+            [[nodiscard]] bool await_ready() const noexcept {
+                return !m_yield && m_scheduler.is_worker_thread();
+            }
+
+            template<schedulable_promise Promise>
+            void await_suspend(const std::coroutine_handle<Promise> current) {
+                auto* const work = as_work(current);
+
+                if(m_admitted) {
+                    m_scheduler.post_existing(work, m_yield);
+                    return;
+                }
+
+                auto admission = m_scheduler.try_admit();
+                
+                if(!admission) {
+                    throw scheduler_stopped{};
+                }
+
+                auto* const scheduler = std::addressof(m_scheduler);
+                const auto yield = m_yield;
+                admission.release();
+                scheduler->publish(work, true, yield);
+            }
+
+            static void await_resume() noexcept {}
+        private:
+            cpu_scheduler& m_scheduler;
+            bool m_yield;
+            bool m_admitted;
+        };
+
+        [[nodiscard]] schedule_awaiter schedule() noexcept { return {*this, false}; }
+        [[nodiscard]] schedule_awaiter yield() noexcept { return {*this, true}; }
+
+        template<class Result>
+        [[nodiscard]] coro::task<Result> schedule(coro::task<Result> child) {
+            co_await schedule();
+            co_return co_await std::move(child);
+        }
+
+        void post(schedulable_work* const work) noexcept {
+            DEBUG_ASSERT(is_worker_thread());
+            post_existing(work);
+        }
+
+        template<class Result>
+        [[nodiscard]] future<Result> submit(coro::task<Result> child) {
+            DEBUG_ASSERT(child.valid());
+            auto admission = try_admit();
+
+            if(!admission) {
+                throw scheduler_stopped{};
+            }
+
+            auto* const slot = acquire_slot();
+            slot->template prepare_external<Result>();
+            future<Result> result{this, slot};
+
+            try {
+                complete_task(this, slot, std::move(child), std::move(admission));
+            }
+            catch(...) {
+                slot->release_reference();
+                throw;
+            }
+
+            return result;
+        }
+
+        template<class Result>
+        [[nodiscard]] std::optional<future<Result>> try_submit(coro::task<Result>&& child) {
+            DEBUG_ASSERT(child.valid());
+            auto admission = try_admit();
+
+            if(!admission) {
+                return {};
+            }
+
+            auto* const slot = try_acquire_slot();
+
+            if(slot == nullptr) {
+                return {};
+            }
+
+            slot->template prepare_external<Result>();
+            future<Result> result{this, slot};
+
+            try {
+                complete_task(this, slot, std::move(child), std::move(admission));
+            }
+            catch(...) {
+                slot->release_reference();
+                throw;
+            }
+
+            return std::optional<future<Result>>{std::move(result)};
+        }
+
+        template<class Result>
+        void submit_detached(coro::task<Result> child) {
+            DEBUG_ASSERT(child.valid());
+            auto admission = try_admit();
+            if(!admission) {
+                throw scheduler_stopped{};
+            }
+            complete_detached(this, std::move(child), std::move(admission));
         }
     private:
+        template<class Result>
+        static coro::detached_task complete_task(cpu_scheduler* scheduler, slot_type* slot,
+            coro::task<Result> child, [[maybe_unused]] admission_guard admission) {
+            co_await schedule_awaiter{*scheduler, true, true};
+
+            try {
+                if constexpr(std::is_void_v<Result>) {
+                    co_await std::move(child);
+                    slot->complete();
+                }
+                else {
+                    slot->complete_value(co_await std::move(child));
+                }
+            }
+            catch(...) {
+                slot->complete_exception(std::current_exception());
+            }
+            slot->release_reference();
+        }
+
+        template<class Result>
+        static coro::detached_task complete_detached(cpu_scheduler* scheduler,
+            coro::task<Result> child, [[maybe_unused]] admission_guard admission) {
+            co_await schedule_awaiter{*scheduler, true, true};
+
+            try {
+                static_cast<void>(co_await std::move(child));
+            }
+            catch(...) {
+                scheduler->m_config.unhandled_exception(std::current_exception());
+            }
+        }
+
         [[nodiscard]] static scheduler_config validate_config(scheduler_config cfg) {
             if(cfg.worker_count == 0) {
                 throw std::invalid_argument("worker_count must be greater than zero");
             }
 
-            if(cfg.global_queue_capacity == 0 || !std::has_single_bit(cfg.global_queue_capacity)) {
+            if(cfg.local_queue_capacity < 2 || !std::has_single_bit(cfg.local_queue_capacity)) {
+                throw std::invalid_argument("local_queue_capacity must be a power of two greater than one");
+            }
+
+            if(cfg.global_queue_capacity < 2 || !std::has_single_bit(cfg.global_queue_capacity)) {
                 throw std::invalid_argument("global_queue_capacity must be a power of two");
             }
 
@@ -794,22 +1150,40 @@ namespace nova {
             return cfg;
         }
 
-        [[nodiscard]] bool accepts_submission() const noexcept {
-            return m_accepting.load(std::memory_order::acquire) || tls_scheduler == this;
+        [[nodiscard]] admission_guard try_admit() noexcept {
+            if(is_worker_thread()) {
+                m_work_state.fetch_add(1, std::memory_order::relaxed);
+                return admission_guard{this};
+            }
+
+            auto state = m_work_state.load(std::memory_order::relaxed);
+
+            while((state & closed_bit) == 0) {
+                if(m_work_state.compare_exchange_weak(state, state + 1,
+                    std::memory_order::acq_rel, std::memory_order::relaxed)) {
+                    return admission_guard{this};
+                }
+            }
+            return admission_guard{};
+        }
+
+        void post_existing(schedulable_work* const work, const bool global = false) noexcept {
+            m_work_state.fetch_add(1, std::memory_order::relaxed);
+            publish(work, true, global);
         }
 
         [[nodiscard]] slot_type* try_acquire_slot() noexcept {
             if(tls_scheduler == this) {
-                if(auto* slot = tls_worker->task_slots.try_acquire()) {
+                if(auto* slot = tls_worker->task_slots->try_acquire()) {
                     return slot;
                 }
             }
 
             const auto count = static_cast<uint32_t>(m_workers.size());
-            auto index = m_pool_cursor.fetch_add(1, std::memory_order::relaxed) % count;
+            auto index = external_rng.bounded(count);
 
             for(std::uint32_t i = 0; i != count; ++i) {
-                if(auto* slot = m_workers[index]->task_slots.try_acquire()) {
+                if(auto* slot = m_workers[index]->task_slots->try_acquire()) {
                     return slot;
                 }
 
@@ -821,81 +1195,80 @@ namespace nova {
         }
 
         [[nodiscard]] slot_type* acquire_slot() {
-            if(!accepts_submission()) {
-                throw scheduler_stopped{};
+            if(auto* const slot = try_acquire_slot()) {
+                return slot;
             }
-
-            backoff bo;
-
-            for(;;) {
-                if(auto* slot = try_acquire_slot()) {
-                    return slot;
-                }
-
-                if(!accepts_submission()) {
-                    throw scheduler_stopped{};
-                }
-
-                task_pointer task = nullptr;
-
-                if(tls_scheduler == this && try_get_task(*tls_worker, task)) {
-                    execute_task(task);
-                    bo.reset();
-                    continue;
-                }
-
-                if(tls_scheduler != this && m_global_queue.try_pop(task)) {
-                    execute_task(task);
-                    bo.reset();
-                    continue;
-                }
-
-                bo.snooze();
-            }
+            return slot_type::make_overflow();
         }
 
-        void publish(task_pointer task) noexcept {
-            m_pending.fetch_add(1, std::memory_order::release);
-
-            if(tls_scheduler == this) {
+        void publish(work_pointer task, const bool stealable = false, const bool global = false) noexcept {
+            if(is_worker_thread() && !global) {
                 auto& worker = *tls_worker;
-
-                auto* const displaced = std::exchange(worker.lifo_slot, task);
-
-                if(displaced == nullptr) {
-                    return;
+                
+                if(!stealable) {
+                    task = std::exchange(worker.lifo_slot, task);
+                    if(task == nullptr) {
+                        return;
+                    }
                 }
 
-                if(worker.local_queue.push(displaced)) {
+                if(worker.local_queue.push(task)) {
                     wake_one();
                     return;
                 }
-
-                if(m_global_queue.try_push(displaced)) {
-                    wake_one();
-                    return;
-                }
-
-                execute_task(displaced);
-                return;
             }
 
-            if(m_global_queue.try_push(task)) {
-                wake_one();
-                return;
+            if(!m_global_queue.try_push(task)) {
+                push_overflow(task);
             }
-
-            execute_task(task);
+            wake_one();
         }
 
-        [[nodiscard]] bool try_get_task(worker_state& worker, task_pointer& out) noexcept {
+        void push_overflow(work_pointer work) noexcept {
+            std::lock_guard lock{m_overflow_mutex};
+            work->next_work = nullptr;
+
+            if(m_overflow_tail != nullptr) {
+                m_overflow_tail->next_work = work;
+            }
+            else {
+                m_overflow_head = work;
+            }
+
+            m_overflow_tail = work;
+            m_has_overflow.store(true, std::memory_order::release);
+        }
+
+        [[nodiscard]] bool pop_overflow(work_pointer& out) noexcept {
+            if(!m_has_overflow.load(std::memory_order::acquire)) {
+                return false;
+            }
+
+            std::lock_guard lock{m_overflow_mutex};
+            
+            if(m_overflow_head == nullptr) {
+                return false;
+            }
+
+            out = m_overflow_head;
+            m_overflow_head = out->next_work;
+
+            if(m_overflow_head == nullptr) {
+                m_overflow_tail = nullptr;
+                m_has_overflow.store(false, std::memory_order::release);
+            }
+
+            return true;
+        }
+
+        [[nodiscard]] bool try_get_work(worker_state& worker, work_pointer& out) noexcept {
             bool checked_global = false;
 
             if(--worker.global_budget == 0) {
                 worker.global_budget = m_config.global_poll_interval;
                 checked_global = true;
 
-                if(m_global_queue.try_pop(out)) {
+                if(pop_overflow(out) || m_global_queue.try_pop(out)) {
                     return true;
                 }
             }
@@ -905,8 +1278,8 @@ namespace nova {
                 return true;
             }
 
-            if(const auto task = worker.local_queue.pop()) {
-                out = *task;
+            if(const auto work = worker.local_queue.pop()) {
+                out = *work;
                 return true;
             }
 
@@ -914,10 +1287,13 @@ namespace nova {
                 return true;
             }
 
+            if(pop_overflow(out)) {
+                return true;
+            }
             return steal_batch(worker, out);
         }
 
-        [[nodiscard]] bool steal_batch(worker_state& worker, task_pointer& out) noexcept {
+        [[nodiscard]] bool steal_batch(worker_state& worker, work_pointer& out) noexcept {
             const auto count = static_cast<std::uint32_t>(m_workers.size());
 
             if(count <= 1) {
@@ -931,6 +1307,7 @@ namespace nova {
                     auto& victim = *m_workers[victim_index];
 
                     const auto available = victim.local_queue.size();
+
                     if(available != 0) {
                         const auto desired = std::min(
                             {
@@ -940,26 +1317,34 @@ namespace nova {
                             }
                         );
 
-                        auto dst = std::span<task_pointer>(worker.stolen_tasks.data(), desired);
+                        auto dst = std::span<work_pointer>{
+                            worker.stolen_tasks.data(),
+                            desired
+                        };
+
                         const auto stolen = victim.local_queue.steal_batch(dst);
 
                         if(stolen != 0) {
                             out = worker.stolen_tasks[0];
 
                             for(std::size_t j = stolen; j-- > 1;) {
-                                const auto task = worker.stolen_tasks[j];
-                                const auto inserted = worker.local_queue.push(task);
+                                auto* const work = worker.stolen_tasks[j];
 
-                                if(!inserted) [[unlikely]] {
-                                    if(!m_global_queue.try_push(task)) {
-                                        execute_task(task);
-                                    }
+                                if(worker.local_queue.push(work)) {
+                                    continue;
                                 }
+
+                                if(m_global_queue.try_push(work)) {
+                                    continue;
+                                }
+
+                                push_overflow(work);
                             }
 
                             if(stolen > 1) {
                                 wake_one();
                             }
+
                             return true;
                         }
                     }
@@ -973,55 +1358,58 @@ namespace nova {
             return false;
         }
 
-        void execute_task(task_pointer task) noexcept {
-            DEBUG_ASSERT(task != nullptr);
-
-            task->execute();
-
-            const auto remaining = m_pending.fetch_sub(1, std::memory_order::acq_rel) - 1;
-            task->release_reference();
-
-            if(remaining == 0) {
-                m_pending.notify_all();
-
-                if(m_stopping.load(std::memory_order::acquire)) {
-                    wake_all();
-                }
+        void finish_pending_one() noexcept {
+            const auto previous = m_work_state.fetch_sub(1, std::memory_order::acq_rel);
+            DEBUG_ASSERT((previous & count_mask) != 0);
+            if(previous == (closed_bit | 1)) {
+                wake_all();
             }
         }
 
-        void wait_for(slot_type& awaited) {
-            while(!awaited.ready()) {
-                if(tls_scheduler == this) {
-                    task_pointer task {nullptr};
+        void execute_work(work_pointer work) noexcept {
+            DEBUG_ASSERT(work != nullptr);
 
-                    if(try_get_task(*tls_worker, task)) {
-                        execute_task(task);
-                        continue;
-                    }
-                }
+            work->dispatch();
+            finish_pending_one();
+        }
+
+        void wait_for(slot_type& awaited) {
+            if(!is_worker_thread()) {
                 awaited.wait();
+                return;
+            }
+
+            backoff bo;
+            while(!awaited.ready()) {
+                work_pointer work = nullptr;
+                if(try_get_work(*tls_worker, work)) {
+                    execute_work(work);
+                    bo.reset();
+                }
+                else {
+                    bo.snooze();
+                }
             }
         }
 
         [[nodiscard]] bool should_stop() const noexcept {
-            return m_stopping.load(std::memory_order::acquire) &&
-                   m_pending.load(std::memory_order::acquire) == 0;
+            return m_work_state.load(std::memory_order::acquire) == closed_bit;
         }
 
-        void worker_loop(std::stop_token stop_token, worker_state& worker) noexcept {
+        void worker_loop(worker_state& worker) noexcept {
             tls_scheduler = this;
             tls_worker = &worker;
 
             m_ready.count_down();
+
             backoff bo;
 
-            while(!stop_token.stop_requested()) {
-                task_pointer task = nullptr;
+            for(;;) {
+                work_pointer work = nullptr;
 
-                if(try_get_task(worker, task)) {
+                if(try_get_work(worker, work)) {
                     bo.reset();
-                    execute_task(task);
+                    execute_work(work);
                     continue;
                 }
 
@@ -1038,12 +1426,14 @@ namespace nova {
                 const auto block = worker.index / 64U;
                 const auto bit = std::uint64_t{1} << (worker.index % 64U);
 
-                m_idle_blocks[block].fetch_or(bit, std::memory_order::seq_cst);
+                m_idle_blocks[block].fetch_or(bit, std::memory_order::acq_rel);
+                std::atomic_thread_fence(std::memory_order::seq_cst);
 
-                if(try_get_task(worker, task)) {
+                if(try_get_work(worker, work)) {
                     m_idle_blocks[block].fetch_and(~bit, std::memory_order::seq_cst);
                     bo.reset();
-                    execute_task(task);
+
+                    execute_work(work);
                     continue;
                 }
 
@@ -1055,7 +1445,6 @@ namespace nova {
                 worker.parker.park();
 
                 m_idle_blocks[block].fetch_and(~bit, std::memory_order::seq_cst);
-
                 bo.reset();
             }
 
@@ -1064,9 +1453,12 @@ namespace nova {
         }
 
         bool wake_one() noexcept {
+            std::atomic_thread_fence(std::memory_order::seq_cst);
+
             if(m_idle_block_count == 0) {
                 return false;
             }
+
             auto block = m_wake_cursor.load(std::memory_order::relaxed);
             if(block >= m_idle_block_count) {
                 block = 0;
@@ -1104,21 +1496,26 @@ namespace nova {
         }
 
         scheduler_config m_config;
-        mpmc::queue<task_pointer, mpmc::wait_mode::backoff_spin> m_global_queue;
+        mpmc::queue<work_pointer, mpmc::wait_mode::backoff_spin> m_global_queue;
         std::vector<std::unique_ptr<worker_state>> m_workers;
         std::vector<std::jthread> m_threads;
         std::latch m_ready;
         const std::size_t m_idle_block_count;
         std::unique_ptr<std::atomic<std::uint64_t>[]> m_idle_blocks;
 
-        alignas(cache_line_size) std::atomic<std::size_t> m_pending{0};
-        alignas(cache_line_size) std::atomic<std::uint32_t> m_pool_cursor{0};
+        alignas(cache_line_size) std::atomic<std::uint64_t> m_work_state{0};
         alignas(cache_line_size) std::atomic<std::size_t> m_wake_cursor{0};
 
-        std::atomic<bool> m_accepting{true};
-        std::atomic<bool> m_stopping{false};
+        std::mutex m_overflow_mutex;
+        work_pointer m_overflow_head{};
+        work_pointer m_overflow_tail{};
+        std::atomic<bool> m_has_overflow{false};
+        std::atomic<bool> m_shutdown_complete{false};
         std::atomic<bool> m_shutdown_started{false};
 
+        static inline thread_local fast_rng external_rng {
+            static_cast<std::uint64_t>(std::hash<std::thread::id>{}(std::this_thread::get_id()))
+        };
         static inline thread_local cpu_scheduler* tls_scheduler = nullptr;
         static inline thread_local worker_state* tls_worker = nullptr;
     };

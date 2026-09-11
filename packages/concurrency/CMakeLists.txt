@@ -24,6 +24,9 @@ target_sources(nova_concurrency
     sync/mutex.cppm
     deque/concurrentdeque.cppm
     runtime/cpu_scheduler.cppm
+    coros/scheduler_work.cppm
+    coros/task.cppm
+    coros/algorithms.cppm
 )
 
 target_compile_features(nova_concurrency PUBLIC cxx_std_23)
