@@ -7,6 +7,7 @@ add_executable(nova_concurrency_tests
     seqlock_test.cpp
     mutex_test.cpp
     cpu_scheduler_test.cpp
+    coro_test.cpp
 )
 
 target_compile_features(nova_concurrency_tests PRIVATE cxx_std_23)
