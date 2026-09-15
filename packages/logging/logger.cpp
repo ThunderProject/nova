@@ -9,6 +9,7 @@
 #include <quill/core/LogLevel.h>
 #include <quill/core/MacroMetadata.h>
 #include <quill/sinks/Sink.h>
+#include <quill/sinks/FileSink.h>
 #include <libassert/assert.hpp>
 #include <cstdint>
 #include <ranges>
@@ -22,8 +23,18 @@ using namespace std::chrono_literals;
 namespace rn = std::ranges;
 namespace vi = std::views;
 
-static inline quill::Logger* logger_instance{nullptr};
-static std::atomic<nova::logFunc> logger_callback{nullptr};
+namespace {
+    [[nodiscard]] std::filesystem::path log_path() {
+        if(const char* home = std::getenv("HOME"); home != nullptr) {
+            return std::filesystem::path{home}/".local"/"state"/"nova"/"nova.log";
+        }
+
+        return std::filesystem::temp_directory_path()/"nova"/"nova.log";
+    }
+
+    inline quill::Logger* logger_instance{nullptr};
+    std::atomic<nova::logFunc> logger_callback{nullptr};
+}
 
 class log_sink final : public quill::Sink {
 public:
@@ -58,12 +69,41 @@ void nova::logger::init() {
     };
 
     quill::Backend::start(backend_options);
-    auto sink = quill::Frontend::create_or_get_sink<log_sink>("ipc_sink");
-    logger_instance = quill::Frontend::create_or_get_logger("nova_cxx", std::move(sink));
+    auto cb_sink = quill::Frontend::create_or_get_sink<log_sink>("ipc_sink");
+
+    const auto path = log_path();
+    std::filesystem::create_directories(path.parent_path());
+
+    auto file_sink = quill::Frontend::create_or_get_sink<quill::FileSink>(
+        path.string(),
+        [] {
+            quill::FileSinkConfig cfg;
+            cfg.set_open_mode('a');
+
+            return cfg;
+        }(),
+        quill::FileEventNotifier{}
+    );
+
+    quill::PatternFormatterOptions formatter {
+        "%(time) [%(thread_id)] %(short_source_location) LOG_%(log_level) %(logger) %(message)", 
+        "%H:%M:%S.%Qns",
+        quill::Timezone::LocalTime
+    };
+
+    logger_instance = quill::Frontend::create_or_get_logger(
+        "nova", 
+        { std::move(cb_sink), std::move(file_sink) }, 
+        formatter
+    );
     logger_instance->set_log_level(quill::LogLevel::Debug);
 }
 
 void nova::logger::shutdown() {
+    if(logger_instance != nullptr) {
+        logger_instance->flush_log();
+    }
+
     quill::Backend::stop();
     logger_instance = nullptr;
 }
@@ -72,32 +112,33 @@ void nova::logger::set_log_callback(logFunc cb) {
     logger_callback.store(cb, std::memory_order_relaxed);
 }
 
-void nova::logger::debug(std::string_view message) {
-    if(logger_instance != nullptr) {
-        LOG_DEBUG(logger_instance, "{}", message);
+void nova::logger::write(const severity level, const std::string_view message, const std::source_location location) noexcept {
+    if(logger_instance == nullptr) {
+        return;
     }
-}
 
-void nova::logger::info(std::string_view message) {
-    if(logger_instance != nullptr) {
-        LOG_INFO(logger_instance, "{}", message);
+    try {
+        const auto quill_level = [&] {
+            switch(level) {
+                case severity::debug: return quill::LogLevel::Debug;
+                case severity::info: return quill::LogLevel::Info;
+                case severity::warn: return quill::LogLevel::Warning;
+                case severity::error: return quill::LogLevel::Error;
+                case severity::fatal: return quill::LogLevel::Critical;
+            }
+            std::unreachable();
+        }();
+
+        QUILL_LOG_RUNTIME_METADATA(
+            logger_instance,
+            quill_level,
+            location.file_name(),
+            static_cast<std::uint32_t>(location.line()),
+            location.function_name(),
+            "{}",
+            message
+        );
     }
-}
-
-void nova::logger::warn(std::string_view message) {
-    if(logger_instance != nullptr) {
-        LOG_WARNING(logger_instance, "{}", message);
-    }
-}
-
-void nova::logger::error(std::string_view message) {
-    if(logger_instance != nullptr) {
-        LOG_ERROR(logger_instance, "{}", message);
-    }
-}
-
-void nova::logger::fatal(std::string_view message) {
-    if(logger_instance != nullptr) {
-        LOG_CRITICAL(logger_instance, "{}", message);
+    catch(...) { // NOLINT(bugprone-empty-catch)
     }
 }

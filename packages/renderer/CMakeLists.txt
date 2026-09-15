@@ -25,7 +25,10 @@ target_link_libraries(
     libassert::assert
     PRIVATE
     nova_platform
+    nova_concurrency
+    nova_logging
+    nova_di
+    nova_core
     nova_project_options
-
 )
 nova_enable_unity_build(nova_renderer)
