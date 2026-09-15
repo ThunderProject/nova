@@ -1,18 +1,28 @@
 module;
 
+#include "logging/logger.h"
+#include <assert.hpp>
 #include <stdexcept>
 #include <utility>
-#define GLFW_INCLUDE_NONE
 #include <cstdint>
 #include <string_view>
 #include <string>
+#define GLFW_EXPOSE_NATIVE_WAYLAND
+#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
+#include <GLFW/glfw3native.h>
 
 export module nova.platform.window;
 
 class platform_runtime {
 public:
     platform_runtime() {
+        if(glfwPlatformSupported(GLFW_PLATFORM_WAYLAND) != GLFW_TRUE) [[unlikely]] {
+            throw std::runtime_error("Nova requires wayland support");
+        }
+
+        glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_WAYLAND);
+    
         if(glfwInit() != GLFW_TRUE) [[unlikely]] {
             const char* description{nullptr};
             glfwGetError(&description);
@@ -23,6 +33,12 @@ public:
 
             throw std::runtime_error(error);
         }
+
+        std::string_view display_server = glfwGetPlatform() == GLFW_PLATFORM_WAYLAND
+            ? "Wayland"
+            : "Unexpected";
+        nova::logger::info("Nova display server: {}", display_server);
+        DEBUG_ASSERT(glfwGetPlatform() == GLFW_PLATFORM_WAYLAND);
     }
 
     platform_runtime(const platform_runtime&) = delete;
@@ -44,6 +60,11 @@ void ensure_platform_runtime() {
 }
 
 export namespace nova::platform {
+    struct presentation_handle {
+        void* display{nullptr};
+        void* surface{nullptr};
+    };
+
     struct extent2d {
         [[nodiscard]] constexpr bool empty() const noexcept {
             return width == 0 || height == 0;
@@ -65,7 +86,7 @@ export namespace nova::platform {
     public:
         explicit window(window_desc desc = {}) {
             ensure_platform_runtime();
-            
+
             glfwDefaultWindowHints();
             glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
             glfwWindowHint(GLFW_RESIZABLE, desc.resizable ? GLFW_TRUE : GLFW_FALSE);
@@ -128,6 +149,20 @@ export namespace nova::platform {
         }
 
         void poll_events() const noexcept { glfwPollEvents(); }
+
+        [[nodiscard]] presentation_handle presentation() const noexcept {
+            DEBUG_ASSERT(m_handle != nullptr);
+
+            presentation_handle handle {
+                .display = glfwGetWaylandDisplay(),
+                .surface = glfwGetWaylandWindow(m_handle)
+            };
+
+            DEBUG_ASSERT(handle.display != nullptr);
+            DEBUG_ASSERT(handle.surface != nullptr);
+
+            return handle;
+        }
 
         [[nodiscard]] extent2d size() const noexcept {
             int width{};
