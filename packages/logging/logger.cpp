@@ -86,8 +86,8 @@ void nova::logger::init() {
     );
 
     quill::PatternFormatterOptions formatter {
-        "%(time) [%(thread_id)] %(short_source_location) LOG_%(log_level) %(logger) %(message)", 
-        "%H:%M:%S.%Qns",
+        "%(time) [%(thread_id)] %(short_source_location) %(log_level) %(logger) %(message)", 
+        "%Y-%m-%d %H:%M:%S.%Qns",
         quill::Timezone::LocalTime
     };
 
