@@ -2,8 +2,6 @@ CompileFlags:
   CompilationDatabase: packages/build/Release/cmake
   Add:
       - -Wall
-      - -std=c++2c
-      - -Wall
       - -Wextra
       - -Wpedantic
       - -Wno-c++98-compat
@@ -16,6 +14,8 @@ CompileFlags:
       - -std=c++26
 
 Diagnostics:
+  Suppress:
+    - module_odr_violation_record
   ClangTidy:
     Add:
       - bugprone-*

@@ -115,6 +115,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="run conan install before configuring",
     )
+    parser.add_argument(
+        "--run-renderer",
+        action="store_true",
+        help="build and run nova_renderer",
+    )
 
     cli = parser.parse_args()
 
@@ -124,8 +129,19 @@ def parse_args() -> argparse.Namespace:
     if cli.all and cli.package:
         raise RuntimeError("choose either --all or --package, not both")
 
+    if cli.run_renderer and (cli.all or cli.package):
+        raise RuntimeError("--run-renderer cannot be combined with --all or --package")
+
     return cli
 
+
+def run_renderer(config: Config, cmake_build_dir: str) -> None:
+    executable = Path(cmake_build_dir) / "renderer" / "nova_renderer"
+
+    if not executable.is_file():
+        raise RuntimeError(f"renderer executable not found at '{executable}'")
+
+    run_command(str(executable), [])
 
 def discover_package_dirs(root: Path) -> list[PackageMatch]:
     matches: list[PackageMatch] = []
@@ -360,18 +376,23 @@ def run() -> None:
 
     cmake_build_dir = configure_cmake(config, cli.fetch)
 
-    if cli.package:
+    if cli.run_renderer:
+        run_command("cmake", ["--build", cmake_build_dir, "--target", "nova_renderer",],)
+    elif cli.package:
         package_dir = resolve_package_dir(Path.cwd(), cli.package)
         target = resolve_target_for_package(package_dir, cli.package)
         print(f"resolved package '{cli.package}' -> {package_dir}")
         print(f"resolved target '{target}'")
-        run_command("cmake", ["--build", cmake_build_dir, "--target", target])
+        run_command("cmake", [ "--build", cmake_build_dir, "--target", target,],)
+
     else:
-        run_command("cmake", ["--build", cmake_build_dir])
+        run_command("cmake", ["--build", cmake_build_dir,],)
 
     if cli.tests:
-        run_command("ctest", ["--test-dir", cmake_build_dir, "--output-on-failure"])
+        run_command("ctest", [ "--test-dir", cmake_build_dir, "--output-on-failure",],)
 
+    if cli.run_renderer:
+        run_renderer(config, cmake_build_dir)
 
 def main() -> None:
     try:
