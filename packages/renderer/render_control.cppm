@@ -42,7 +42,7 @@ export namespace nova::render {
             };
         }
 
-        std::atomic_bool m_stop;
+        std::atomic_bool m_stop{false};
         std::atomic_uint64_t m_extent;
     };
 }

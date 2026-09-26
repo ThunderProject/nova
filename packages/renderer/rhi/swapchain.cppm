@@ -89,7 +89,6 @@ export namespace nova::render::rhi {
             swapchain result(device, extent);
 
             nri::SwapChainDesc desc{};
-
             desc.window.wayland.display = presentation.display;
             desc.window.wayland.surface = presentation.surface;
             desc.queue = &device.graphics_queue();
@@ -99,6 +98,9 @@ export namespace nova::render::rhi {
             desc.format = config.format;
             desc.flags = config.flags;
             desc.queuedFrameNum = config.queued_frame_count;
+            desc.scaling = nri::Scaling::STRETCH;
+            desc.gravityX = nri::Gravity::CENTERED;
+            desc.gravityY = nri::Gravity::CENTERED;
 
             auto res = check(device.swapchain_interface().CreateSwapChain(device.native(), desc, result.m_swapchain));
             if(!res) {

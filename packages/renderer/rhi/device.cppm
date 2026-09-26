@@ -222,12 +222,15 @@ namespace nova::render::rhi {
                 return nova::err(std::move(result.error()));
             }
 
+            const auto& device_desc = description();
+            if(!device_desc.features.resizableSwapChain) {
+                return nova::err(std::string{"Nova requires resizable swapchain support"});
+            }
+            
             if(auto result = acquire_queues(); !result) {
                 destroy();
                 return nova::err(std::move(result.error()));
             }
-
-            const auto& device_desc = description();
 
             nova::logger::info(
                 "RHI device initialized: {} MiB VRAM",

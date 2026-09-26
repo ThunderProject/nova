@@ -20,6 +20,8 @@ target_sources(nova_renderer
     PUBLIC
     FILE_SET cxx_modules TYPE CXX_MODULES FILES
     render_control.cppm
+    frame.cppm
+    renderer.cppm
     rhi/device.cppm
     rhi/core.cppm
     rhi/command_context.cppm
@@ -27,6 +29,13 @@ target_sources(nova_renderer
     rhi/swapchain.cppm
     rhi/queue.cppm
     rhi/renderer.cppm
+    graph/resource.cppm
+    graph/pass.cppm
+    graph/render_graph.cppm
+    graph/compiler.cppm
+    passes/clear.cppm
+    passes/lines.cppm
+    runtime/pass_context.cppm
 )
 
 
