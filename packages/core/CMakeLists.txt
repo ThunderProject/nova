@@ -10,6 +10,7 @@ target_compile_features(nova_core INTERFACE cxx_std_26)
 find_package(libassert REQUIRED)
 find_package(unordered_dense REQUIRED)
 find_package(nlohmann_json REQUIRED)
+find_package(libunwind REQUIRED)
 
 target_sources(nova_core
     PUBLIC
@@ -17,6 +18,7 @@ target_sources(nova_core
         TYPE CXX_MODULES
         FILES
             profiler.cppm
+            crash_handler.cppm
             # whatever else:
             # foo.cppm
             # bar.cppm
@@ -31,6 +33,8 @@ target_link_libraries(nova_core
         libassert::assert
     PRIVATE
         nova_concurrency
+        stdc++exp
+        libunwind::ptrace
 )
 
 if(NOVA_BUILD_TESTS)
