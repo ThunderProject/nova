@@ -29,6 +29,7 @@ target_sources(nova_renderer
     rhi/swapchain.cppm
     rhi/queue.cppm
     rhi/renderer.cppm
+    rhi/present_waiter.cppm
     graph/resource.cppm
     graph/pass.cppm
     graph/render_graph.cppm

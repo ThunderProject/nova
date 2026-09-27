@@ -30,6 +30,7 @@ import nova.render.rhi.command_context;
 import nova.render.rhi.frame_context;
 import nova.render.rhi.queue;
 import nova.render.rhi.swapchain;
+import nova.render.rhi.present_waiter;
 import nova.di.singleton;
 
 export namespace nova::render::rhi {
@@ -61,6 +62,7 @@ export namespace nova::render::rhi {
             m_device(std::move(other.m_device)),
             m_graphics_queue(std::move(other.m_graphics_queue)),
             m_swapchain(std::move(other.m_swapchain)),
+            m_present_waiter(std::move(other.m_present_waiter)),
             m_frames(std::move(other.m_frames)),
             m_backbuffer_views(std::move(other.m_backbuffer_views)),
             m_recording_lane_count(other.m_recording_lane_count),
@@ -138,6 +140,16 @@ export namespace nova::render::rhi {
 
             co_await scheduler.schedule();
 
+            if(m_has_presented) {
+                const auto wait_result = co_await m_present_waiter->wait(*m_swapchain);
+                if(!wait_result) [[unlikely]] {
+                    if(wait_result.error() == nri::Result::OUT_OF_DATE) {
+                        co_return frame_status::out_of_date;
+                    } 
+                    co_return nova::err(nri_result_error("WaitForPresent", wait_result.error()));
+                }
+            }
+
             auto& frame = m_frames[m_frame_index];
 
             while(!frame.complete()) {
@@ -210,6 +222,7 @@ export namespace nova::render::rhi {
 
                 co_return nova::err(nri_result_error("QueuePresent", present_res.error()));
             }
+            m_has_presented = true;
             co_return frame_status::rendered;
         }
 
@@ -232,7 +245,11 @@ export namespace nova::render::rhi {
             destroy_backbuffer_views();
             m_swapchain.reset();
 
-            return create_swapchain(presentation, extent, desc);
+            res = create_swapchain(presentation, extent, desc);
+            if(res) {
+                m_has_presented = false;
+            }
+            return res;
         }
 
         [[nodiscard]] const swapchain& presentation_swapchain() const noexcept {
@@ -254,6 +271,7 @@ export namespace nova::render::rhi {
             :
             m_device(std::move(device)),
             m_graphics_queue(*m_device, m_device->graphics_queue(), recording_lane_count),
+            m_present_waiter(std::make_unique<present_waiter>()),
             m_recording_lane_count(recording_lane_count)
         {}
 
@@ -349,12 +367,12 @@ export namespace nova::render::rhi {
 
         std::unique_ptr<device> m_device;
         queue m_graphics_queue;
-
         std::optional<swapchain> m_swapchain;
+        std::unique_ptr<present_waiter> m_present_waiter;
         std::vector<frame_context> m_frames;
         std::vector<nri::Descriptor*> m_backbuffer_views;
-
         std::uint32_t m_recording_lane_count{0};
         std::size_t m_frame_index{0};
+        bool m_has_presented{false};
     };
 }

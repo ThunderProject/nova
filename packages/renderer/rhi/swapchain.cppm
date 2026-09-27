@@ -22,11 +22,7 @@ export namespace nova::render::rhi {
         std::uint8_t texture_count{3};
         std::uint8_t queued_frame_count{2};
         nri::SwapChainFormat format{nri::SwapChainFormat::BT709_G22_8BIT};
-        nri::SwapChainBits flags{
-            nri::SwapChainBits::ALLOW_TEARING |
-            nri::SwapChainBits::WAITABLE |
-            nri::SwapChainBits::ALLOW_LOW_LATENCY
-        };
+        nri::SwapChainBits flags{ nri::SwapChainBits::WAITABLE | nri::SwapChainBits::ALLOW_LOW_LATENCY };
     };
 
     struct acquired_image {
@@ -185,6 +181,13 @@ export namespace nova::render::rhi {
 
             return nova::ok{};
         }
+
+        [[nodiscard]] nri::Result wait_for_present() noexcept {
+            DEBUG_ASSERT(m_device != nullptr);
+            DEBUG_ASSERT(m_swapchain != nullptr);
+
+            return m_device->swapchain_interface().WaitForPresent(*m_swapchain);
+       }
 
         [[nodiscard]] nri::SwapChain& native() noexcept {
             DEBUG_ASSERT(m_swapchain != nullptr);

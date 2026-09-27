@@ -223,10 +223,13 @@ namespace nova::render::rhi {
             }
 
             const auto& device_desc = description();
+            if(!device_desc.features.waitableSwapChain) {
+                return nova::err(std::string{"Nova requires waitable swapchain support"});
+            }
             if(!device_desc.features.resizableSwapChain) {
                 return nova::err(std::string{"Nova requires resizable swapchain support"});
             }
-            
+
             if(auto result = acquire_queues(); !result) {
                 destroy();
                 return nova::err(std::move(result.error()));

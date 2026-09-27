@@ -1021,6 +1021,20 @@ namespace nova {
             post_existing(work);
         }
 
+        [[nodiscard]] bool post_external(schedulable_work* const work) noexcept {
+            DEBUG_ASSERT(work != nullptr);
+
+            auto admission = try_admit();
+            if(!admission) [[unlikely]] {
+                return false;
+            }
+
+            admission.release();
+            publish(work, true, true);
+
+            return true;
+        }
+
         template<class Result>
         [[nodiscard]] future<Result> submit(coro::task<Result> child) {
             DEBUG_ASSERT(child.valid());
