@@ -30,7 +30,7 @@ import nova.render.rhi.command_context;
 import nova.render.rhi.frame_context;
 import nova.render.rhi.queue;
 import nova.render.rhi.swapchain;
-import nova.render.rhi.present_waiter;
+import nova.render.rhi.gpu_waiter;
 import nova.di.singleton;
 
 export namespace nova::render::rhi {
@@ -57,16 +57,16 @@ export namespace nova::render::rhi {
         renderer& operator=(const renderer&) = delete;
         renderer& operator=(renderer&&) = delete;
 
-        renderer(renderer&& other) noexcept
+        renderer(renderer&& rhs) noexcept
             :
-            m_device(std::move(other.m_device)),
-            m_graphics_queue(std::move(other.m_graphics_queue)),
-            m_swapchain(std::move(other.m_swapchain)),
-            m_present_waiter(std::move(other.m_present_waiter)),
-            m_frames(std::move(other.m_frames)),
-            m_backbuffer_views(std::move(other.m_backbuffer_views)),
-            m_recording_lane_count(other.m_recording_lane_count),
-            m_frame_index(std::exchange(other.m_frame_index, 0))
+            m_device(std::move(rhs.m_device)),
+            m_graphics_queue(std::move(rhs.m_graphics_queue)),
+            m_swapchain(std::move(rhs.m_swapchain)),
+            m_gpu_waiter(std::move(rhs.m_gpu_waiter)),
+            m_frames(std::move(rhs.m_frames)),
+            m_backbuffer_views(std::move(rhs.m_backbuffer_views)),
+            m_recording_lane_count(rhs.m_recording_lane_count),
+            m_frame_index(std::exchange(rhs.m_frame_index, 0))
         {}
 
         ~renderer() noexcept {
@@ -141,7 +141,7 @@ export namespace nova::render::rhi {
             co_await scheduler.schedule();
 
             if(m_has_presented) {
-                const auto wait_result = co_await m_present_waiter->wait(*m_swapchain);
+                const auto wait_result = co_await m_gpu_waiter->wait_present(*m_swapchain, scheduler);
                 if(!wait_result) [[unlikely]] {
                     if(wait_result.error() == nri::Result::OUT_OF_DATE) {
                         co_return frame_status::out_of_date;
@@ -152,12 +152,9 @@ export namespace nova::render::rhi {
 
             auto& frame = m_frames[m_frame_index];
 
-            while(!frame.complete()) {
-                co_await scheduler.yield();
-            }
+            co_await m_gpu_waiter->wait_frame(frame, scheduler);
 
             auto acquired = m_swapchain->acquire();
-
             if(!acquired) {
                 if(acquired.error() == nri::Result::OUT_OF_DATE) {
                     co_return frame_status::out_of_date;
@@ -271,7 +268,7 @@ export namespace nova::render::rhi {
             :
             m_device(std::move(device)),
             m_graphics_queue(*m_device, m_device->graphics_queue(), recording_lane_count),
-            m_present_waiter(std::make_unique<present_waiter>()),
+            m_gpu_waiter(std::make_unique<gpu_waiter>()),
             m_recording_lane_count(recording_lane_count)
         {}
 
@@ -368,7 +365,7 @@ export namespace nova::render::rhi {
         std::unique_ptr<device> m_device;
         queue m_graphics_queue;
         std::optional<swapchain> m_swapchain;
-        std::unique_ptr<present_waiter> m_present_waiter;
+        std::unique_ptr<gpu_waiter> m_gpu_waiter;
         std::vector<frame_context> m_frames;
         std::vector<nri::Descriptor*> m_backbuffer_views;
         std::uint32_t m_recording_lane_count{0};
