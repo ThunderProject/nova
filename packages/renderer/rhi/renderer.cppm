@@ -69,7 +69,8 @@ export namespace nova::render::rhi {
             m_frames(std::move(rhs.m_frames)),
             m_backbuffer_views(std::move(rhs.m_backbuffer_views)),
             m_recording_lane_count(rhs.m_recording_lane_count),
-            m_frame_index(std::exchange(rhs.m_frame_index, 0))
+            m_frame_index(std::exchange(rhs.m_frame_index, 0)),
+            m_idle(std::exchange(rhs.m_idle, true))
         {}
 
         ~renderer() noexcept {
@@ -77,8 +78,22 @@ export namespace nova::render::rhi {
                 return;
             }
 
-            auto _ = m_device->wait_idle();
+            auto _ = wait_idle();
             destroy_backbuffer_views();
+        }
+
+        [[nodiscard]] nova::result<nova::ok> wait_idle() {
+            if(m_device == nullptr || m_idle) {
+                return nova::ok{};
+            }
+
+            auto res = m_device->wait_idle();
+            if(!res) {
+                return nova::err(std::move(res.error()));
+            }
+
+            m_idle = true;
+            return nova::ok{};
         }
 
         [[nodiscard]] static nova::result<renderer> create(
@@ -226,6 +241,7 @@ export namespace nova::render::rhi {
                 co_return nova::err(std::move(res.error()));
             }
 
+            m_idle = false;
             advance_frame();
 
             auto present_res = m_swapchain->present(*acquired);
@@ -252,7 +268,7 @@ export namespace nova::render::rhi {
                 return nova::ok{};
             }
 
-            auto res = m_device->wait_idle();
+            auto res = wait_idle();
             if(!res) {
                 return nova::err(std::move(res.error()));
             }
@@ -389,5 +405,6 @@ export namespace nova::render::rhi {
         std::uint32_t m_recording_lane_count{0};
         std::size_t m_frame_index{0};
         bool m_has_presented{false};
+        bool m_idle{true};
     };
 }

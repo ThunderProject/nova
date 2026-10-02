@@ -326,10 +326,7 @@ namespace nova::render::rhi {
             if(m_device == nullptr) {
                 return;
             }
-            if(m_core.DeviceWaitIdle != nullptr) {
-                auto _ = m_core.DeviceWaitIdle(m_device);
-            }
-
+          
             nri::nriDestroyDevice(m_device);
             m_device = nullptr;
             m_graphics_queue = nullptr;

@@ -97,6 +97,7 @@ add_custom_command(
         -target spirv
         -profile spirv_1_6
         -capability spvMeshShadingEXT
+        -fvk-use-entrypoint-name
         -O3
         -o "${NOVA_LINE_MESH_SPV}"
 
@@ -117,6 +118,7 @@ add_custom_command(
         -stage fragment
         -target spirv
         -profile spirv_1_6
+        -fvk-use-entrypoint-name
         -O3
         -o "${NOVA_LINE_FRAGMENT_SPV}"
 

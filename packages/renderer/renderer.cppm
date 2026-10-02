@@ -56,6 +56,10 @@ export namespace nova::render {
         renderer(renderer&&) noexcept = default;
         renderer& operator=(renderer&&) = delete;
 
+        ~renderer() noexcept {
+            auto _ = m_rhi.wait_idle();
+        }
+
         [[nodiscard]] static nova::result<renderer> create(
             const platform::presentation_handle presentation,
             const platform::extent2d extent,
