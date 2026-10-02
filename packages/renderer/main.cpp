@@ -11,6 +11,7 @@ import nova.di.singleton;
 import nova.platform.window;
 import nova.render.control;
 import nova.render.renderer;
+import nova.render.frame;
 
 nova::coro::task<nova::result<nova::ok>> render_main(
     nova::render::render_control& control, 
@@ -61,6 +62,66 @@ nova::coro::task<nova::result<nova::ok>> render_main(
         }
 
         auto frame = renderer.begin_frame();
+        using nova::render::color;
+        using nova::render::position3;
+
+        frame.reserve_lines(16);
+
+        frame.draw_line(
+            position3{-0.9f, 0.8f, 0.0f},
+            position3{0.9f, 0.8f, 0.0f},
+            color{255, 255, 255, 255},
+            0.5f
+        );
+
+        frame.draw_line(
+            position3{-0.9f, 0.6f, 0.0f},
+            position3{0.9f, 0.6f, 0.0f},
+            color{255, 255, 255, 255},
+            1.0f
+        );
+
+        frame.draw_line(
+            position3{-0.9f, 0.4f, 0.0f},
+            position3{0.9f, 0.4f, 0.0f},
+            color{255, 255, 255, 255},
+            1.5f
+        );
+
+        frame.draw_line(
+            position3{-0.9f, 0.2f, 0.0f},
+            position3{0.9f, 0.2f, 0.0f},
+            color{255, 255, 255, 255},
+            2.0f
+        );
+
+        frame.draw_line(
+            position3{-0.9f, 0.0f, 0.0f},
+            position3{0.9f, 0.0f, 0.0f},
+            color{139, 92, 246, 255},
+            4.0f
+        );
+
+        frame.draw_line(
+            position3{-0.9f, -0.3f, 0.0f},
+            position3{0.9f, -0.8f, 0.0f},
+            color{255, 80, 80, 255},
+            6.0f
+        );
+
+        frame.draw_line(
+            position3{-0.9f, -0.8f, 0.0f},
+            position3{0.9f, -0.3f, 0.0f},
+            color{80, 255, 160, 180},
+            10.0f
+        );
+
+        frame.draw_line(
+            position3{0.0f, -0.9f, 0.0f},
+            position3{0.0f, 0.9f, 0.0f},
+            color{80, 160, 255, 220},
+            2.0f
+        );
         auto render_res = co_await renderer.render(std::move(frame));
 
         if(!render_res) {
@@ -132,7 +193,7 @@ int main() {
         auto render_fut = scheduler.submit(render_main(render_control, window.presentation()));
 
         while(!window.should_close()) {
-            window.poll_events();
+            window.wait_events();
             render_control.set_extent(window.framebuffer_size());
         }
 

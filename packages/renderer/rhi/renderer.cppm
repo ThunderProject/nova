@@ -4,6 +4,7 @@ module;
 
 #include <NRI.h>
 #include <NRIDescs.h>
+#include <Extensions/NRIMeshShader.h>
 #include <assert.hpp>
 #include <array>
 #include <cstddef>
@@ -46,9 +47,11 @@ export namespace nova::render::rhi {
 
     struct frame_recording_context {
         nri::CoreInterface& core;
+        nri::MeshShaderInterface& mesh_shader;
         command_context& commands;
         acquired_image& image;
         nri::Descriptor& color_attachment;
+        std::uint32_t frame_index;
     };
 
     class renderer final {
@@ -129,6 +132,20 @@ export namespace nova::render::rhi {
             return result;
         }
 
+        [[nodiscard]] device& render_device() noexcept {
+            DEBUG_ASSERT(m_device != nullptr);
+           return *m_device;
+        }
+
+        [[nodiscard]] const device& render_device() const noexcept {
+            DEBUG_ASSERT(m_device != nullptr);
+            return *m_device;
+        }
+
+        [[nodiscard]] std::size_t queued_frame_count() const noexcept {
+            return m_frames.size();
+        }
+
         template<class Recorder>
         [[nodiscard]] nova::coro::task<nova::result<frame_status>> render_frame(
             nova::cpu_scheduler<>& scheduler,
@@ -151,7 +168,6 @@ export namespace nova::render::rhi {
             }
 
             auto& frame = m_frames[m_frame_index];
-
             co_await m_gpu_waiter->wait_frame(frame, scheduler);
 
             auto acquired = m_swapchain->acquire();
@@ -173,11 +189,13 @@ export namespace nova::render::rhi {
                 co_return nova::err(std::move(res.error()));
             }
 
-            frame_recording_context recording{
+            frame_recording_context recording {
                 .core = m_device->core(),
+                .mesh_shader = m_device->mesh_shader(),
                 .commands = commands,
                 .image = *acquired,
-                .color_attachment = *m_backbuffer_views[acquired->index]
+                .color_attachment = *m_backbuffer_views[acquired->index],
+                .frame_index = static_cast<std::uint32_t>(m_frame_index)
             };
 
             auto record_res = std::invoke(recorder, recording);

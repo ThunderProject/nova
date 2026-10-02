@@ -4,6 +4,7 @@ module;
 #include <NRI.h>
 #include <Extensions/NRISwapChain.h>
 #include <Extensions/NRIDeviceCreation.h>
+#include <Extensions/NRIMeshShader.h>
 #include <NRIDescs.h>
 #include <array>
 #include <assert.hpp>
@@ -68,29 +69,31 @@ namespace nova::render::rhi {
         device(const device&) = delete;
         device& operator=(const device&) = delete;
 
-        device(device&& other) noexcept
+        device(device&& rhs) noexcept
             :
-            m_device(std::exchange(other.m_device, nullptr)),
-            m_core(other.m_core),
-            m_swapchain(other.m_swapchain),
-            m_graphics_queue(std::exchange(other.m_graphics_queue, nullptr)),
-            m_compute_queue(std::exchange(other.m_compute_queue, nullptr)),
-            m_copy_queue(std::exchange(other.m_copy_queue, nullptr)) 
+            m_device(std::exchange(rhs.m_device, nullptr)),
+            m_core(rhs.m_core),
+            m_swapchain(rhs.m_swapchain),
+            m_graphics_queue(std::exchange(rhs.m_graphics_queue, nullptr)),
+            m_compute_queue(std::exchange(rhs.m_compute_queue, nullptr)),
+            m_copy_queue(std::exchange(rhs.m_copy_queue, nullptr)),
+            m_mesh_shader(rhs.m_mesh_shader)
         {}
 
-        device& operator=(device&& other) noexcept {
-            if(this == &other) {
+        device& operator=(device&& rhs) noexcept {
+            if(this == &rhs) {
                 return *this;
             }
 
             destroy();
 
-            m_device = std::exchange(other.m_device, nullptr);
-            m_core = other.m_core;
-            m_swapchain = other.m_swapchain;
-            m_graphics_queue = std::exchange(other.m_graphics_queue, nullptr);
-            m_compute_queue = std::exchange(other.m_compute_queue, nullptr);
-            m_copy_queue = std::exchange(other.m_copy_queue, nullptr);
+            m_device = std::exchange(rhs.m_device, nullptr);
+            m_core = rhs.m_core;
+            m_swapchain = rhs.m_swapchain;
+            m_graphics_queue = std::exchange(rhs.m_graphics_queue, nullptr);
+            m_compute_queue = std::exchange(rhs.m_compute_queue, nullptr);
+            m_copy_queue = std::exchange(rhs.m_copy_queue, nullptr);
+            m_mesh_shader = rhs.m_mesh_shader;
 
             return *this;
         }
@@ -169,6 +172,14 @@ namespace nova::render::rhi {
             DEBUG_ASSERT(m_device != nullptr);
             return check(m_core.DeviceWaitIdle(m_device));
         }
+
+        [[nodiscard]] nri::MeshShaderInterface& mesh_shader() noexcept {
+            return m_mesh_shader;
+        }
+
+        [[nodiscard]] const nri::MeshShaderInterface& mesh_shader() const noexcept {
+           return m_mesh_shader;
+        }
     private:
         device() noexcept = default;
 
@@ -223,6 +234,21 @@ namespace nova::render::rhi {
             }
 
             const auto& device_desc = description();
+            if(!device_desc.features.meshShader) {
+               return nova::err(std::string{"Nova requires mesh shader support"});
+            }
+            if(!device_desc.features.shaderBytecodeSPIRV) {
+               return nova::err(std::string{"Nova requires SPIR-V shader bytecode support"});
+            }
+            if(device_desc.shaderStage.mesh.workGroupInvocationMaxNum < 32) {
+                return nova::err(std::string{"Nova requires at least 32 mesh shader invocations per workgroup"});
+            }
+            if(device_desc.shaderStage.mesh.outputVerticesMaxNum < 128) {
+               return nova::err(std::string{"Nova requires at least 128 mesh shader output vertices"});
+            }
+            if(device_desc.shaderStage.mesh.outputPrimitiveMaxNum < 64) {
+                return nova::err(std::string{"Nova requires at least 64 mesh shader output primitives"});
+            }
             if(!device_desc.features.waitableSwapChain) {
                 return nova::err(std::string{"Nova requires waitable swapchain support"});
             }
@@ -252,12 +278,17 @@ namespace nova::render::rhi {
         [[nodiscard]] nova::result<nova::ok> load_interfaces() {
             DEBUG_ASSERT(m_device != nullptr);
 
-            auto res = check(nri::nriGetInterface(*m_device, "CoreInterface", sizeof(nri::CoreInterface), &m_core));
+            auto res = check(nri::nriGetInterface(*m_device, NRI_INTERFACE(nri::CoreInterface), &m_core));
             if(!res) {
                 return nova::err(std::move(res.error()));
             }
 
-            res = check(nri::nriGetInterface(*m_device, "SwapChainInterface", sizeof(nri::SwapChainInterface), &m_swapchain));
+            res = check(nri::nriGetInterface(*m_device, NRI_INTERFACE(nri::SwapChainInterface), &m_swapchain));
+            if(!res) {
+                return nova::err(std::move(res.error()));
+            }
+
+            res = check(nri::nriGetInterface(*m_device, NRI_INTERFACE(nri::MeshShaderInterface), &m_mesh_shader));
             if(!res) {
                 return nova::err(std::move(res.error()));
             }
@@ -313,5 +344,7 @@ namespace nova::render::rhi {
         nri::Queue* m_graphics_queue{nullptr};
         nri::Queue* m_compute_queue{nullptr};
         nri::Queue* m_copy_queue{nullptr};
+
+        nri::MeshShaderInterface m_mesh_shader{};
     };
 }

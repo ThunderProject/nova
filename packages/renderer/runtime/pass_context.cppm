@@ -1,6 +1,7 @@
 module;
 
 #include <NRI.h>
+#include <Extensions/NRIMeshShader.h>
 #include <assert.hpp>
 #include <span>
 
@@ -28,13 +29,15 @@ export namespace nova::render::runtime {
     class pass_context final {
     public:
         pass_context(
-            nri::CoreInterface& core, 
+            nri::CoreInterface& core,
+            nri::MeshShaderInterface& mesh_shader,
             rhi::command_context& commands,
             const std::span<const texture_binding> textures,
             const std::span<const buffer_binding> buffers
         ) noexcept
             :
             m_core(&core),
+            m_mesh_shader(&mesh_shader),
             m_commands(&commands),
             m_textures(textures),
             m_buffers(buffers)
@@ -58,6 +61,11 @@ export namespace nova::render::runtime {
         [[nodiscard]] nri::CommandBuffer& command_buffer() noexcept {
             DEBUG_ASSERT(m_commands != nullptr);
             return m_commands->native();
+        }
+
+        [[nodiscard]] nri::MeshShaderInterface& mesh_shader() noexcept {
+            DEBUG_ASSERT(m_mesh_shader != nullptr);
+            return *m_mesh_shader;
         }
 
         [[nodiscard]] nri::Texture& texture(const graph::texture_handle handle) const noexcept {
@@ -137,6 +145,7 @@ export namespace nova::render::runtime {
         }
 
         nri::CoreInterface* m_core{nullptr};
+        nri::MeshShaderInterface* m_mesh_shader{nullptr};
         rhi::command_context* m_commands{nullptr};
 
         std::span<const texture_binding> m_textures;

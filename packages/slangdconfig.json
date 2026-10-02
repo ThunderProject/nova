@@ -1,0 +1,10 @@
+{
+    "slang.additionalSearchPaths": [
+        "renderer/shaders",
+        "renderer/shaders/include"
+    ],
+    "slang.predefinedMacros": [
+        "NOVA_VULKAN=1"
+    ],
+    "slang.format.clangFormatStyle": "file"
+}

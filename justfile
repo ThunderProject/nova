@@ -161,3 +161,47 @@ log:
     fi; \
     exec lnav "$log"
 
+# Remove generated build files for one configuration.
+clean config="release":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    case "{{config}}" in
+        release)
+            dir="{{packages}}/build/Release"
+            ;;
+        debug)
+            dir="{{packages}}/build/Debug"
+            ;;
+        all)
+            dir="{{packages}}/build"
+            ;;
+        *)
+            echo "error: expected release, debug or all" >&2
+            exit 2
+            ;;
+    esac
+
+    echo "Removing $dir"
+    rm -rf "$dir"
+
+# Completely rebuild one configuration.
+rebuild config="release":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    case "{{config}}" in
+        release)
+            rm -rf "{{packages}}/build/Release"
+            exec just build release
+            ;;
+        debug)
+            rm -rf "{{packages}}/build/Debug"
+            exec just build debug
+            ;;
+        *)
+            echo "error: expected release or debug" >&2
+            exit 2
+            ;;
+    esac
+

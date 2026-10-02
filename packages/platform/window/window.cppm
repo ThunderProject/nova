@@ -148,7 +148,13 @@ export namespace nova::platform {
             glfwSetWindowShouldClose(m_handle, GLFW_TRUE);
         }
 
-        void poll_events() const noexcept { glfwPollEvents(); }
+        void poll_events() const noexcept { 
+            glfwPollEvents(); 
+        }
+
+        void wait_events() const noexcept { 
+           glfwWaitEvents();
+        }
 
         [[nodiscard]] presentation_handle presentation() const noexcept {
             DEBUG_ASSERT(m_handle != nullptr);

@@ -29,6 +29,12 @@ import nova.render.passes.clear;
 import nova.render.runtime.pass_context;
 import nova.render.rhi.renderer;
 import nova.render.rhi.swapchain;
+import nova.render.passes.lines;
+import nova.render.rhi.buffer;
+
+namespace nova::render {
+    static constexpr std::uint32_t initial_line_capacity = 65'536;
+}
 
 export namespace nova::render {
     enum class frame_status : std::uint8_t {
@@ -70,14 +76,49 @@ export namespace nova::render {
                 std::move(*rhi_renderer),
                 desc.swapchain,
                 desc.clear_color
+ 
             };
+
+            auto line_buffers = result.create_line_buffers();
+            if(!line_buffers) {
+                return nova::err(std::move(line_buffers.error()));
+            }
 
             auto graph_res = result.rebuild_graph();
             if(!graph_res) {
                 return nova::err(std::move(graph_res.error()));
             }
 
+            auto line_pipeline = result.m_lines.init(
+                result.m_rhi.render_device(),
+                result.m_rhi.presentation_swapchain().format()
+            );
+
+            if(!line_pipeline) {
+                return nova::err(std::move(line_pipeline.error()));
+            }
+
             return result;
+        }
+
+        [[nodiscard]] nova::result<nova::ok> create_line_buffers() {
+            m_line_buffers.clear();
+            const auto frame_count = m_rhi.queued_frame_count();
+
+            m_line_buffers.reserve(frame_count);
+            const auto size = static_cast<std::uint64_t>(m_line_capacity) * sizeof(passes::line_instance);
+
+            for(std::size_t i = 0; i < frame_count; ++i) {
+                auto buffer = rhi::buffer::create_upload_buffer(m_rhi.render_device(), size, sizeof(passes::line_instance));
+
+                if(!buffer) {
+                    return nova::err(std::move(buffer.error()));
+                }
+
+                m_line_buffers.emplace_back(std::move(*buffer));
+            }
+
+            return nova::ok{};
         }
 
         [[nodiscard]] frame begin_frame() const {
@@ -85,18 +126,12 @@ export namespace nova::render {
         }
 
         [[nodiscard]] nova::coro::task<nova::result<frame_status>> render(frame submitted_frame) {
-            if(!submitted_frame.empty()) {
-                co_return nova::err(std::string{
-                    "rendering is not connected to the GPU pipeline yet"
-                });
-            }
-
             auto& scheduler = nova::ioc::ioc().resolve<nova::cpu_scheduler<>>();
 
             auto res = co_await m_rhi.render_frame(
                 scheduler,
-                [this](rhi::frame_recording_context& recording) {
-                    return record_graph(recording);
+                [this, &submitted_frame](rhi::frame_recording_context& recording) {
+                    return record_graph(recording, submitted_frame);
                 }
             );
 
@@ -177,9 +212,10 @@ export namespace nova::render {
 
             m_graph = graph::render_graph{};
             m_compiled = graph::compiled_graph{};
-            m_clear = passes::clear_pass{};
             m_backbuffer = {};
+            m_line_instances = {};
             m_present = {};
+            m_clear = passes::clear_pass{};
 
             const graph::texture_desc backbuffer_desc{
                 .dimension = graph::texture_dimension::texture_2d,
@@ -195,10 +231,18 @@ export namespace nova::render {
             };
 
             m_backbuffer = m_graph.import_texture("backbuffer", backbuffer_desc);
+            const graph::buffer_desc line_buffer_desc {
+                .size = static_cast<std::uint64_t>(m_line_capacity) * sizeof(passes::line_instance),
+                .stride = sizeof(passes::line_instance)
+            };
+
+            m_line_instances = m_graph.import_buffer("line_instances", line_buffer_desc);
 
             m_clear = passes::clear_pass { m_backbuffer, m_clear_color };
 
             auto _ = m_clear.add_to(m_graph);
+            m_lines.reset_graph_binding(m_backbuffer, m_line_instances);
+            _ = m_lines.add_to(m_graph);
 
             const auto backbuffer = m_backbuffer;
 
@@ -208,10 +252,7 @@ export namespace nova::render {
                     .queue = graph::pass_queue::graphics
                 },
                 [backbuffer](graph::pass_builder& builder) {
-                    builder.read(
-                        backbuffer,
-                        graph::resource_usage::present
-                    );
+                    builder.read(backbuffer, graph::resource_usage::present);
                 }
             );
 
@@ -222,22 +263,44 @@ export namespace nova::render {
 
             m_compiled = std::move(*compiled);
 
-            m_texture_bindings.assign(
-                m_graph.texture_count(),
-                runtime::texture_binding{}
-            );
-
-            m_buffer_bindings.assign(
-                m_graph.buffer_count(),
-                runtime::buffer_binding{}
-            );
+            m_texture_bindings.assign(m_graph.texture_count(), runtime::texture_binding{});
+            m_buffer_bindings.assign(m_graph.buffer_count(), runtime::buffer_binding{});
 
             return nova::ok{};
         }
 
-        [[nodiscard]] nova::result<nova::ok> record_graph(rhi::frame_recording_context& recording) {
+        [[nodiscard]] nova::result<nova::ok> record_graph(
+            rhi::frame_recording_context& recording, 
+            const frame& submitted_frame
+        )  {
             DEBUG_ASSERT(m_backbuffer.valid());
             DEBUG_ASSERT(m_backbuffer.index() < m_texture_bindings.size());
+            DEBUG_ASSERT(recording.frame_index < m_line_buffers.size());
+
+            DEBUG_ASSERT(recording.frame_index < m_line_buffers.size());
+
+            const auto lines = submitted_frame.lines();
+
+            if(lines.size() > m_line_capacity) [[unlikely]] {
+                return nova::err(std::format("Line count {} exceeds renderer capacity {}", lines.size(), m_line_capacity));
+            }
+
+            m_current_line_count = static_cast<std::uint32_t>(lines.size());
+
+            auto& gpu_lines = m_line_buffers[recording.frame_index];
+            auto upload_res = gpu_lines.upload(lines);
+
+            if(!upload_res) { 
+                return nova::err(std::move(upload_res.error())); 
+            }
+
+            DEBUG_ASSERT(m_line_instances.valid());
+            DEBUG_ASSERT(m_line_instances.index() < m_buffer_bindings.size());
+
+            auto& line_binding = m_buffer_bindings[m_line_instances.index()];
+            line_binding = {};  
+            line_binding.buffer = &gpu_lines.native();
+            line_binding.shader_resource = &gpu_lines.shader_resource();
 
             auto& backbuffer_binding = m_texture_bindings[m_backbuffer.index()];
 
@@ -247,6 +310,7 @@ export namespace nova::render {
 
             runtime::pass_context context{
                 recording.core,
+                recording.mesh_shader,
                 recording.commands,
                 std::span<const runtime::texture_binding>{m_texture_bindings},
                 std::span<const runtime::buffer_binding>{m_buffer_bindings}
@@ -261,6 +325,17 @@ export namespace nova::render {
                         return nova::err(std::move(res.error()));
                     }
 
+                    continue;
+                }
+
+                if(pass == m_lines.handle()) {
+                    const auto extent = this->extent();
+
+                    auto res = m_lines.record(context, m_current_line_count, extent.width, extent.height);
+
+                    if(!res) {
+                        return nova::err(std::move(res.error()));
+                    }
                     continue;
                 }
 
@@ -306,11 +381,11 @@ export namespace nova::render {
             nri::TextureBarrierDesc texture{};
             texture.texture = recording.image.texture;
 
-            texture.before.access = nri::AccessBits::COLOR_ATTACHMENT_WRITE;
+            texture.before.access = nri::AccessBits::COLOR_ATTACHMENT_READ | nri::AccessBits::COLOR_ATTACHMENT_WRITE;
             texture.before.layout = nri::Layout::COLOR_ATTACHMENT;
             texture.before.stages = nri::StageBits::COLOR_ATTACHMENT;
 
-            texture.after.access = nri::AccessBits::NONE;
+            texture.after.access = nri::AccessBits::COLOR_ATTACHMENT_READ | nri::AccessBits::COLOR_ATTACHMENT_WRITE;
             texture.after.layout = nri::Layout::PRESENT;
             texture.after.stages = nri::StageBits::NONE;
 
@@ -335,5 +410,11 @@ export namespace nova::render {
         passes::clear_pass m_clear;
         std::vector<runtime::texture_binding> m_texture_bindings;
         std::vector<runtime::buffer_binding> m_buffer_bindings;
+
+        passes::line_pass m_lines;
+        graph::buffer_handle m_line_instances;
+        std::vector<rhi::buffer> m_line_buffers;
+        std::uint32_t m_line_capacity{initial_line_capacity};
+        std::uint32_t m_current_line_count{0};
     };
 }
