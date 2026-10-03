@@ -335,7 +335,7 @@ TEST_CASE("mutex") {
         };
 
         nova::mutex mutex;
-        state value{};
+        state value{.inverse = ~std::uint64_t{0}};
 
         std::atomic<bool> done{false};
         std::atomic<std::uint64_t> invalid{0};
