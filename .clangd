@@ -12,6 +12,7 @@ CompileFlags:
     - -Wno-exit-time-destructors
     - -Wno-padded
     - -Wno-TU-local-entity-exposure
+    - -Wno-c23-extensions
 
 Index:
   Background: Build

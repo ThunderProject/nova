@@ -1,10 +1,8 @@
 #include <array>
-#include <cmath>
 #include <concepts>
 #include <cstddef>
 #include <limits>
 #include <type_traits>
-#include <utility>
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
