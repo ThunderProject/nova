@@ -1,0 +1,60 @@
+name: Tests
+
+on:
+  workflow_dispatch:
+
+  schedule:
+    - cron: "0 3 * * 6"
+      timezone: Europe/Stockholm
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nova-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: ${{ matrix.config }}
+
+    runs-on: ubuntu-24.04
+
+    timeout-minutes: 60
+
+    strategy:
+      fail-fast: false
+
+      matrix:
+        config:
+          - Debug
+          - Release
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Nova
+        uses: ./.github/actions/setup-nova
+
+      - name: Build and test
+        working-directory: packages
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ matrix.config }}" == "Debug" ]]; then
+            python3 build.py \
+              --debug \
+              --all \
+              --fetch \
+              --tests
+          else
+            python3 build.py \
+              --release \
+              --all \
+              --fetch \
+              --tests
+          fi

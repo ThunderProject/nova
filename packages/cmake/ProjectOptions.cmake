@@ -1,6 +1,18 @@
 include_guard(GLOBAL)
 add_library(nova_project_options INTERFACE)
 
+set(NOVA_SANITIZER "none" CACHE STRING "Nova sanitizer: none, asan-ubsan, tsan")
+
+set_property(
+    CACHE NOVA_SANITIZER
+    PROPERTY STRINGS
+        none
+        asan-ubsan
+        tsan
+)
+set(NOVA_CPU_ARCH "native" CACHE STRING "CPU architecture passed to -march")
+set(NOVA_CPU_TUNE "native" CACHE STRING "CPU tuning target passed to -mtune")
+
 function(nova_enable_unity_build target)
     if(NOVA_ENABLE_UNITY_BUILD)
         set_target_properties(${target} PROPERTIES
@@ -48,8 +60,8 @@ target_compile_options(nova_project_options INTERFACE
   $<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-fcf-protection=full>
 
   $<$<CONFIG:Release>:-O3>
-  $<$<CONFIG:Release>:-march=native>
-  $<$<CONFIG:Release>:-mtune=native>
+  $<$<CONFIG:Release>:-march=${NOVA_CPU_ARCH}>
+  $<$<CONFIG:Release>:-mtune=${NOVA_CPU_TUNE}>
   $<$<CONFIG:Release>:-fdata-sections>
   $<$<CONFIG:Release>:-flto=thin>
   #$<$<CONFIG:Release>:-fsanitize=cfi>
@@ -62,8 +74,8 @@ target_compile_options(nova_project_options INTERFACE
 
   $<$<CONFIG:RelWithDebInfo>:-O3>
   $<$<CONFIG:RelWithDebInfo>:-g>
-  $<$<CONFIG:RelWithDebInfo>:-march=native>
-  $<$<CONFIG:RelWithDebInfo>:-mtune=native>
+  $<$<CONFIG:RelWithDebInfo>:-march=${NOVA_CPU_ARCH}>
+  $<$<CONFIG:RelWithDebInfo>:-mtune=${NOVA_CPU_TUNE}>
   $<$<CONFIG:RelWithDebInfo>:-flto=thin>
   $<$<CONFIG:RelWithDebInfo>:-fsanitize=cfi>
   $<$<CONFIG:RelWithDebInfo>:-fsanitize-trap=cfi>
@@ -71,6 +83,53 @@ target_compile_options(nova_project_options INTERFACE
   $<$<CONFIG:RelWithDebInfo>:-fstrict-vtable-pointers>
   $<$<CONFIG:RelWithDebInfo>:-ffunction-sections>
   $<$<CONFIG:RelWithDebInfo>:-fdata-sections>
+)
+
+set(NOVA_SANITIZER_COMPILE_OPTIONS)
+set(NOVA_SANITIZER_LINK_OPTIONS)
+
+if(NOVA_SANITIZER STREQUAL "asan-ubsan")
+    list(APPEND NOVA_SANITIZER_COMPILE_OPTIONS
+        -O1
+        -g3
+        -fno-omit-frame-pointer
+        -fno-optimize-sibling-calls
+        -fsanitize=address,undefined
+        -fsanitize-address-use-after-scope
+        -fno-sanitize-recover=all
+    )
+    list(APPEND NOVA_SANITIZER_LINK_OPTIONS
+        -fsanitize=address,undefined
+    )
+
+elseif(NOVA_SANITIZER STREQUAL "tsan")
+    list(APPEND NOVA_SANITIZER_COMPILE_OPTIONS
+        -O1
+        -g3
+        -fno-omit-frame-pointer
+        -fno-optimize-sibling-calls
+        -fsanitize=thread
+    )
+    list(APPEND NOVA_SANITIZER_LINK_OPTIONS
+        -fsanitize=thread
+    )
+elseif(NOT NOVA_SANITIZER STREQUAL "none")
+    message(
+        FATAL_ERROR
+        "Unknown NOVA_SANITIZER='${NOVA_SANITIZER}'"
+    )
+endif()
+
+target_compile_options(
+    nova_project_options
+    INTERFACE
+        ${NOVA_SANITIZER_COMPILE_OPTIONS}
+)
+
+target_link_options(
+    nova_project_options
+    INTERFACE
+        ${NOVA_SANITIZER_LINK_OPTIONS}
 )
 
 target_link_options(nova_project_options INTERFACE
