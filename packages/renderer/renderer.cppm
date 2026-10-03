@@ -31,6 +31,7 @@ import nova.render.rhi.renderer;
 import nova.render.rhi.swapchain;
 import nova.render.passes.lines;
 import nova.render.rhi.buffer;
+import nova.render.color;
 
 namespace nova::render {
     static constexpr std::uint32_t initial_line_capacity = 65'536;
@@ -45,7 +46,7 @@ export namespace nova::render {
     struct renderer_desc {
         rhi::swapchain_desc swapchain{};
         std::uint32_t recording_lane_count{0};
-        passes::clear_color clear_color{};
+        nova::graphics::color clear_color{nova::graphics::colors::black};
     };
 
     class renderer final {
@@ -167,12 +168,12 @@ export namespace nova::render {
             return rebuild_graph();
         }
 
-        void set_clear_color(const passes::clear_color color) noexcept {
+        void set_clear_color(const graphics::color color) noexcept {
             m_clear_color = color;
             m_clear.color(color);
         }
 
-        [[nodiscard]] passes::clear_color clear_color() const noexcept {
+        [[nodiscard]] graphics::color clear_color() const noexcept {
             return m_clear_color;
         }
 
@@ -181,7 +182,11 @@ export namespace nova::render {
         }
 
     private:
-        renderer(rhi::renderer rhi_renderer, const rhi::swapchain_desc swapchain_desc, const passes::clear_color clear_color)
+        renderer(
+            rhi::renderer rhi_renderer, 
+            const rhi::swapchain_desc swapchain_desc, 
+            const graphics::color clear_color
+        )
             :
             m_rhi(std::move(rhi_renderer)),
             m_swapchain_desc(swapchain_desc),
@@ -406,7 +411,7 @@ export namespace nova::render {
 
         rhi::renderer m_rhi;
         rhi::swapchain_desc m_swapchain_desc;
-        passes::clear_color m_clear_color;
+        nova::graphics::color m_clear_color;
         graph::render_graph m_graph;
         graph::compiled_graph m_compiled;
         graph::texture_handle m_backbuffer;

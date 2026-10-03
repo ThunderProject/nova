@@ -12,6 +12,7 @@ import nova.platform.window;
 import nova.render.control;
 import nova.render.renderer;
 import nova.render.frame;
+import nova.render.color;
 
 nova::coro::task<nova::result<nova::ok>> render_main(
     nova::render::render_control& control, 
@@ -38,12 +39,7 @@ nova::coro::task<nova::result<nova::ok>> render_main(
         presentation,
         extent,
         {
-            .clear_color = {
-                .red = 176.0f / 255.0f,
-                .green = 196.0f / 255.0f,
-                .blue = 222.0f / 255.0f,
-                .alpha = 1.0f
-            }
+            .clear_color = nova::graphics::colors::light_steel_blue
         }
     );
 
@@ -62,7 +58,6 @@ nova::coro::task<nova::result<nova::ok>> render_main(
         }
 
         auto frame = renderer.begin_frame();
-        using nova::render::color;
         using nova::render::position3;
 
         frame.reserve_lines(16);
@@ -70,56 +65,56 @@ nova::coro::task<nova::result<nova::ok>> render_main(
         frame.draw_line(
             position3{-0.9f, 0.8f, 0.0f},
             position3{0.9f, 0.8f, 0.0f},
-            color{255, 255, 255, 255},
+            nova::graphics::colors::white,
             0.5f
         );
 
         frame.draw_line(
             position3{-0.9f, 0.6f, 0.0f},
             position3{0.9f, 0.6f, 0.0f},
-            color{255, 255, 255, 255},
+            nova::graphics::colors::white,
             1.0f
         );
 
         frame.draw_line(
             position3{-0.9f, 0.4f, 0.0f},
             position3{0.9f, 0.4f, 0.0f},
-            color{255, 255, 255, 255},
+            nova::graphics::colors::white,
             1.5f
         );
 
         frame.draw_line(
             position3{-0.9f, 0.2f, 0.0f},
             position3{0.9f, 0.2f, 0.0f},
-            color{255, 255, 255, 255},
+            nova::graphics::colors::white,
             2.0f
         );
 
         frame.draw_line(
             position3{-0.9f, 0.0f, 0.0f},
             position3{0.9f, 0.0f, 0.0f},
-            color{139, 92, 246, 255},
+            nova::graphics::colors::medium_slate_blue,
             4.0f
         );
 
         frame.draw_line(
             position3{-0.9f, -0.3f, 0.0f},
             position3{0.9f, -0.8f, 0.0f},
-            color{255, 80, 80, 255},
+            nova::graphics::colors::tomato,
             6.0f
         );
 
         frame.draw_line(
             position3{-0.9f, -0.8f, 0.0f},
             position3{0.9f, -0.3f, 0.0f},
-            color{80, 255, 160, 180},
+            nova::graphics::colors::medium_aqua_marine,
             10.0f
         );
 
         frame.draw_line(
             position3{0.0f, -0.9f, 0.0f},
             position3{0.0f, 0.9f, 0.0f},
-            color{80, 160, 255, 220},
+            nova::graphics::colors::cornflower_blue,
             2.0f
         );
         auto render_res = co_await renderer.render(std::move(frame));

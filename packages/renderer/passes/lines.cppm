@@ -5,12 +5,9 @@ module;
 #include <NRIDescs.h>
 #include <Extensions/NRIMeshShader.h>
 #include <assert.hpp>
-#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <string>
-#include <system_error>
 #include <utility>
 
 export module nova.render.passes.lines;
@@ -22,6 +19,8 @@ import nova.render.runtime.pass_context;
 import nova.render.rhi.device;
 import nova.render.rhi.shader;
 import nova.render.rhi.core;
+import nova.render.color;
+import nova.math.vector;
 
 export namespace nova::render::passes {
     inline constexpr std::uint32_t line_mesh_group_size = 32;
@@ -34,28 +33,12 @@ export namespace nova::render::passes {
         auto operator<=>(const line_position&) const = default;
     };
 
-    struct line_color {
-        std::uint8_t red{255};
-        std::uint8_t green{255};
-        std::uint8_t blue{255};
-        std::uint8_t alpha{255};
-
-        [[nodiscard]] constexpr std::uint32_t packed() const noexcept {
-            return static_cast<std::uint32_t>(red) |
-                static_cast<std::uint32_t>(green) << 8 |
-                static_cast<std::uint32_t>(blue) << 16 |
-                static_cast<std::uint32_t>(alpha) << 24;
-        }
-
-        auto operator<=>(const line_color&) const = default;
-    };
-
     struct line_instance {
         line_position start;
         float width{1.0f};
 
         line_position end;
-        std::uint32_t color{line_color{}.packed()};
+        std::uint32_t color{nova::graphics::colors::white.packed_rgba8()};
     };
 
     static_assert(sizeof(line_instance) == 32);

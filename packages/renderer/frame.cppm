@@ -3,16 +3,15 @@ module;
 #include <assert.hpp>
 #include <cstddef>
 #include <span>
-#include <utility>
 #include <vector>
 
 export module nova.render.frame;
 
 import nova.render.passes.lines;
+import nova.render.color;
 
 export namespace nova::render {
     using position3 = passes::line_position;
-    using color = passes::line_color;
 
     class frame final {
     public:
@@ -28,7 +27,12 @@ export namespace nova::render {
         frame(frame&&) noexcept = default;
         frame& operator=(frame&&) noexcept = default;
 
-        void draw_line(const position3 start, const position3 end, const color color, const float width = 1.0f) {
+        void draw_line(
+            const position3 start, 
+            const position3 end, 
+            const graphics::color color, 
+            const float width = 1.0f
+        ) {
             DEBUG_ASSERT(width > 0.0f);
 
             m_lines.emplace_back(
@@ -36,7 +40,7 @@ export namespace nova::render {
                     .start = start,
                     .width = width,
                     .end = end,
-                    .color = color.packed()
+                    .color = color.packed_rgba8()
                 }
             );
         }

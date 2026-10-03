@@ -37,6 +37,7 @@ target_sources(nova_renderer
     render_control.cppm
     frame.cppm
     renderer.cppm
+    color.cppm
     rhi/device.cppm
     rhi/core.cppm
     rhi/command_context.cppm
@@ -156,6 +157,7 @@ target_link_libraries(
     nova_logging
     nova_di
     nova_core
+    nova_math
     nova_project_options
     magic_enum::magic_enum
 )

@@ -11,22 +11,14 @@ import nova.render.graph.resource;
 import nova.render.graph.pass;
 import nova.render.graph.render_graph;
 import nova.render.runtime.pass_context;
+import nova.render.color;
 
 export namespace nova::render::passes {
-    struct clear_color {
-        float red{0.02f};
-        float green{0.02f};
-        float blue{0.025f};
-        float alpha{1.0f};
-
-        auto operator<=>(const clear_color&) const = default;
-    };
-
     class clear_pass final {
     public:
         clear_pass() noexcept = default;
 
-        explicit clear_pass(const graph::texture_handle target, const clear_color color = {}) noexcept
+        explicit clear_pass(const graph::texture_handle target, const graphics::color color = {}) noexcept
             :
             m_target(target),
             m_color(color)
@@ -58,10 +50,10 @@ export namespace nova::render::passes {
 
             nri::AttachmentDesc attachment{};
             attachment.descriptor = &context.color_attachment(m_target);
-            attachment.clearValue.color.f.x = m_color.red;
-            attachment.clearValue.color.f.y = m_color.green;
-            attachment.clearValue.color.f.z = m_color.blue;
-            attachment.clearValue.color.f.w = m_color.alpha;
+            attachment.clearValue.color.f.x = m_color.red();
+            attachment.clearValue.color.f.y = m_color.green();
+            attachment.clearValue.color.f.z = m_color.blue();
+            attachment.clearValue.color.f.w = m_color.alpha();
             attachment.loadOp = nri::LoadOp::CLEAR;
             attachment.storeOp = nri::StoreOp::STORE;
 
@@ -85,7 +77,7 @@ export namespace nova::render::passes {
             m_target = target;
         }
 
-        void color(const clear_color color) noexcept {
+        void color(const graphics::color color) noexcept {
             m_color = color;
         }
 
@@ -93,7 +85,7 @@ export namespace nova::render::passes {
             return m_target;
         }
 
-        [[nodiscard]] clear_color color() const noexcept {
+        [[nodiscard]] graphics::color color() const noexcept {
             return m_color;
         }
 
@@ -102,7 +94,7 @@ export namespace nova::render::passes {
         }
     private:
         graph::texture_handle m_target;
-        clear_color m_color{};
+        graphics::color m_color{};
         graph::pass_handle m_pass;
     };
 }
