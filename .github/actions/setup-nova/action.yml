@@ -161,4 +161,4 @@ runs:
         cmake --version
         conan --version
         ninja --version
-        slangc -version        conan profile detect --force
+        slangc -version
