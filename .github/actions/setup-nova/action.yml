@@ -12,6 +12,8 @@ runs:
 
         sudo apt-get update
 
+
+
         sudo apt-get install -y \
           ca-certificates \
           curl \
@@ -24,6 +26,8 @@ runs:
           wayland-protocols \
           libxkbcommon-dev \
           libvulkan-dev \
+          libgl-dev \
+          libgl1-mesa-dev \
           zstd
 
     - name: Install LLVM 22
