@@ -12,8 +12,6 @@ runs:
 
         sudo apt-get update
 
-
-
         sudo apt-get install -y \
           ca-certificates \
           curl \
@@ -59,6 +57,73 @@ runs:
         echo "CXX=/usr/bin/clang++-22" >> "$GITHUB_ENV"
         echo "LLVM_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer-22" >> "$GITHUB_ENV"
 
+    - name: Install Shader Slang
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        SLANG_VERSION="2026.19"
+        SLANG_SHA256="5899bd40c3d1ee60eadd1d1b37acc4e88ae65cc25ac61651534d55b71a85fe75"
+
+        SLANG_ARCHIVE="$RUNNER_TEMP/slang.tar.gz"
+        SLANG_ROOT="$RUNNER_TEMP/slang"
+
+        curl \
+          --fail \
+          --location \
+          --silent \
+          --show-error \
+          "https://github.com/shader-slang/slang/releases/download/v${SLANG_VERSION}/slang-${SLANG_VERSION}-linux-x86_64-glibc-2.27.tar.gz" \
+          --output "$SLANG_ARCHIVE"
+
+        echo "${SLANG_SHA256}  ${SLANG_ARCHIVE}" \
+          | sha256sum --check -
+
+        mkdir -p "$SLANG_ROOT"
+
+        tar \
+          -xzf "$SLANG_ARCHIVE" \
+          -C "$SLANG_ROOT"
+
+        SLANGC_EXECUTABLE="$(
+          find "$SLANG_ROOT" \
+            -type f \
+            -name slangc \
+            -print \
+            -quit
+        )"
+
+        if [[ -z "$SLANGC_EXECUTABLE" ]]; then
+          echo "error: slangc not found in Shader Slang archive" >&2
+          exit 1
+        fi
+
+        chmod +x "$SLANGC_EXECUTABLE"
+
+        SLANG_BIN_DIR="$(dirname "$SLANGC_EXECUTABLE")"
+
+        echo "$SLANG_BIN_DIR" >> "$GITHUB_PATH"
+
+        SLANG_LIBRARY="$(
+          find "$SLANG_ROOT" \
+            -type f \
+            -name 'libslang.so*' \
+            -print \
+            -quit
+        )"
+
+        if [[ -n "$SLANG_LIBRARY" ]]; then
+          SLANG_LIB_DIR="$(dirname "$SLANG_LIBRARY")"
+
+          echo \
+            "LD_LIBRARY_PATH=${SLANG_LIB_DIR}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" \
+            >> "$GITHUB_ENV"
+        fi
+
+        export PATH="${SLANG_BIN_DIR}:${PATH}"
+
+        "$SLANGC_EXECUTABLE" -version
+
     - name: Install build tools
       shell: bash
       run: |
@@ -85,3 +150,15 @@ runs:
         CC=/usr/bin/clang-22 \
         CXX=/usr/bin/clang++-22 \
           conan profile detect --force
+
+    - name: Verify toolchain
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        clang-22 --version
+        clang++-22 --version
+        cmake --version
+        conan --version
+        ninja --version
+        slangc -version        conan profile detect --force
